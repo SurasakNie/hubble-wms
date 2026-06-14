@@ -71,6 +71,10 @@
     }
     .field input:focus { border-color: #03a9f4; }
     .field input::placeholder { color: #4a5568; }
+    /* Edge's native password-reveal eye / clear-X render black — invert so they
+       stay visible on the dark inputs. Edge-only; Chrome/FF have no native control. */
+    .field input::-ms-reveal,
+    .field input::-ms-clear { filter: invert(0.8); cursor: pointer; }
 
     /* ── buttons ── */
     .btn-primary {

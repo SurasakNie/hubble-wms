@@ -434,6 +434,15 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 
+/* Edge's native password-reveal eye + clear-X render black — invert them like the
+   calendar indicator above so they stay visible on dark inputs (color-scheme does
+   not recolor these). Edge-only; Chrome/FF have no native control. */
+input[type="password"]::-ms-reveal,
+input::-ms-clear {
+  filter: invert(0.8);
+  cursor: pointer;
+}
+
 input:focus, textarea:focus, select:focus {
   border-color: var(--accent);
 }
