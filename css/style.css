@@ -1187,10 +1187,10 @@ tbody tr:hover .ts-remove-btn { opacity: 1; }
 
 /* Employee datalist picker with clear button */
 .emp-select-wrap { position: relative; }
-.emp-select-wrap .form-input { padding-right: 28px; }
+.emp-select-wrap .form-input { padding-right: 50px; }   /* room for the native datalist arrow + ✕ (arrow left, ✕ right) */
 .emp-clear-btn {
   position: absolute;
-  right: 6px;
+  right: 8px;   /* ✕ at the far right; the native arrow is shifted left of it (see margin-right below) */
   top: 50%;
   transform: translateY(-50%);
   background: none;
@@ -1202,6 +1202,8 @@ tbody tr:hover .ts-remove-btn { opacity: 1; }
   padding: 2px 4px;
 }
 .emp-clear-btn:hover { color: var(--text-primary); }
+/* empSelect: ✕ pinned far right; shift the native datalist arrow LEFT of it (margin-right) + dark-theme visible. */
+.emp-select-wrap .form-input::-webkit-calendar-picker-indicator { filter: invert(0.8); cursor: pointer; margin-right: 28px; }
 
 /* Page header (used by each page) */
 .page-header {

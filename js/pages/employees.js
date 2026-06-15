@@ -2,6 +2,7 @@
 
 import { isAdmin, getSession } from '../auth.js';
 import { confirmModal } from '../components/confirmModal.js';
+import { empSelectHtml, wireEmpSelect } from '../components/empSelect.js';
 import {
   getDepartments, getEmploymentTypes,
   getEmployees, createEmployee, updateEmployee, archiveEmployee,
@@ -86,8 +87,12 @@ let _departments = [];
 let _empTypes    = [];
 let _statusFilter = 'active';
 let _deptFilter   = '';
-let _search       = '';
-let _activationMap = null;   // user_id → { force_password_change, last_sign_in_at } — lazy-loaded for the Account Status tab
+let _dirEmpId     = null;    // employee picked via the Directory empSelect (filters the table to them)
+let _acctEmpId    = null;    // employee picked via the Account Status empSelect
+let _acctState    = '';      // Account Status: activation-state filter
+let _acctDept     = '';      // Account Status: department filter
+let _activeTab    = 'directory';
+let _activationMap = null;   // user_id → { force_password_change, last_sign_in_at, banned_until } — lazy-loaded for the Account Status tab
 
 // State for the currently-open modal
 let _modalEmployee = null;
@@ -100,9 +105,17 @@ let _modalComp     = null;
 export async function render(profile) {
   _statusFilter = 'active';
   _deptFilter   = '';
-  _search       = '';
+  _dirEmpId     = null;
+  _acctEmpId    = null;
+  _acctState    = '';
+  _acctDept     = '';
 
   const admin = isAdmin();
+  _activeTab = (() => {
+    try { const t = JSON.parse(sessionStorage.getItem('em_tab_state') || '{}').tab;
+          return (t === 'account' && admin) ? 'account' : 'directory'; }
+    catch { return 'directory'; }
+  })();
 
   document.getElementById('topbar-left').innerHTML = `
     <span class="topbar-title">Employees</span>
@@ -115,13 +128,14 @@ export async function render(profile) {
     ${admin ? `<button class="btn btn-primary btn-sm" id="em-add">ADD EMPLOYEE</button>` : ''}
   `;
 
+  const _ta = t => _activeTab === t ? ' active' : '';
   document.getElementById('content').innerHTML = `
     <div class="tabs" id="em-tabs" style="border-bottom:1px solid var(--border);margin-bottom:var(--sp-4)">
-      <button class="tab-btn active" data-tab="directory">Directory</button>
-      ${admin ? `<button class="tab-btn" data-tab="account">Account Status</button>` : ''}
+      <button class="tab-btn${_ta('directory')}" data-tab="directory">Directory</button>
+      ${admin ? `<button class="tab-btn${_ta('account')}" data-tab="account">Account Status</button>` : ''}
     </div>
 
-    <div class="tab-panel active" id="em-panel-directory">
+    <div class="tab-panel${_ta('directory')}" id="em-panel-directory">
       <div class="filter-bar">
         <select id="em-status">
           <option value="active">Active</option>
@@ -132,13 +146,7 @@ export async function render(profile) {
         <select id="em-dept">
           <option value="">All Departments</option>
         </select>
-        <div class="search-input">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input type="search" id="em-search" placeholder="Search employees…">
-        </div>
+        <span id="em-dir-search-slot" style="display:inline-flex;min-width:240px;"></span>
       </div>
       <div id="em-table-wrap">
         <div class="empty-state"><div class="empty-state-title">Loading…</div></div>
@@ -146,7 +154,21 @@ export async function render(profile) {
     </div>
 
     ${admin ? `
-    <div class="tab-panel" id="em-panel-account">
+    <div class="tab-panel${_ta('account')}" id="em-panel-account">
+      <div class="filter-bar">
+        <select id="em-acct-state">
+          <option value="">All accounts</option>
+          <option value="not_activated">Not activated</option>
+          <option value="never_signed_in">Never signed in</option>
+          <option value="not_provisioned">Not provisioned</option>
+          <option value="deactivated">Deactivated</option>
+          <option value="activated">Activated</option>
+        </select>
+        <select id="em-acct-dept">
+          <option value="">All Departments</option>
+        </select>
+        <span id="em-acct-search-slot" style="display:inline-flex;min-width:240px;"></span>
+      </div>
       <div id="em-account-wrap">
         <div class="empty-state"><div class="empty-state-title">Loading…</div></div>
       </div>
@@ -166,13 +188,18 @@ export async function render(profile) {
     _departments = []; _empTypes = []; _employees = [];
   }
 
-  document.getElementById('em-dept').innerHTML =
-    `<option value="">All Departments</option>` +
-    _departments.map(d =>
-      `<option value="${_attr(d.code)}">${_esc(d.label)}</option>`
-    ).join('');
+  const deptOpts = `<option value="">All Departments</option>` +
+    _departments.map(d => `<option value="${_attr(d.code)}">${_esc(d.label)}</option>`).join('');
+  document.getElementById('em-dept').innerHTML = deptOpts;
+  const _acctDeptEl = document.getElementById('em-acct-dept');
+  if (_acctDeptEl) _acctDeptEl.innerHTML = deptOpts;
+
+  // Inject + wire the empSelect search pickers now that _employees is loaded.
+  _wireEmpSearch('em-dir',  id => { _dirEmpId  = id; _renderTable(); });
+  _wireEmpSearch('em-acct', id => { _acctEmpId = id; _renderAccountPanel(); });
 
   _renderTable();
+  if (_activeTab === 'account') _loadAccountPanel();
 }
 
 // ── Controls ──────────────────────────────────────────────────
@@ -190,16 +217,23 @@ function _wireControls(admin) {
     _deptFilter = e.target.value;
     _renderTable();
   });
-  content.querySelector('#em-search')?.addEventListener('input', e => {
-    _search = e.target.value.trim().toLowerCase();
-    _renderTable();
+  content.querySelector('#em-acct-state')?.addEventListener('change', e => {
+    _acctState = e.target.value;
+    _renderAccountPanel();
+  });
+  content.querySelector('#em-acct-dept')?.addEventListener('change', e => {
+    _acctDept = e.target.value;
+    _renderAccountPanel();
   });
 
-  // Page-level tab switching (Directory ⇄ Account Status). The Account Status
-  // panel is admin-only and re-fetches on each open so it's fresh after a reset.
+  // Page-level tab switching (Directory ⇄ Account Status), remembered across a
+  // refresh via sessionStorage. The Account Status panel is admin-only and
+  // re-fetches on each open so it's fresh after a provision/reset/deactivate.
   content.querySelectorAll('#em-tabs .tab-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const tab = btn.dataset.tab;
+      _activeTab = tab;
+      try { sessionStorage.setItem('em_tab_state', JSON.stringify({ tab })); } catch {}
       content.querySelectorAll('#em-tabs .tab-btn').forEach(b => b.classList.remove('active'));
       content.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
@@ -215,11 +249,7 @@ function _filtered() {
   return _employees.filter(e => {
     if (_statusFilter && e.status !== _statusFilter) return false;
     if (_deptFilter   && e.department_code !== _deptFilter) return false;
-    if (_search) {
-      const hay = [e.full_name, e.employee_id, e.job_title, e.contact_email]
-        .filter(Boolean).join(' ').toLowerCase();
-      if (!hay.includes(_search)) return false;
-    }
+    if (_dirEmpId     && e.id !== _dirEmpId) return false;
     return true;
   });
 }
@@ -231,7 +261,7 @@ function _renderTable() {
   const rows  = _filtered();
 
   if (rows.length === 0) {
-    const isFiltered = _search || _deptFilter || (_statusFilter !== 'active');
+    const isFiltered = _dirEmpId || _deptFilter || (_statusFilter !== 'active');
     wrap.innerHTML = `
       <div class="empty-state" style="margin-top:40px">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -355,8 +385,15 @@ async function _fetchActivationMap() {
 function _activationState(e) {
   if (!e.user_id) return 'not_provisioned';
   const a = _activationMap?.[e.user_id];
+  if (a && a.banned_until && new Date(a.banned_until) > new Date()) return 'deactivated';
   if (!a || !a.force_password_change) return 'activated';   // absent from map → don't false-flag
   return a.last_sign_in_at ? 'not_activated' : 'never_signed_in';
+}
+
+// True if the account is currently banned (deactivated) per the activation map.
+function _isDeactivated(emp) {
+  const a = _activationMap?.[emp?.user_id];
+  return !!(a && a.banned_until && new Date(a.banned_until) > new Date());
 }
 
 function _renderAccountPanel() {
@@ -367,23 +404,28 @@ function _renderAccountPanel() {
     never_signed_in: { label: 'Never signed in', cls: 'badge badge-rejected', rank: 0 },
     not_activated:   { label: 'Not activated',   cls: 'badge badge-pending',  rank: 1 },
     not_provisioned: { label: 'Not provisioned', cls: 'badge badge-pending',  rank: 2 },
-    activated:       { label: 'Activated',       cls: 'badge badge-member',   rank: 3 },
+    deactivated:     { label: 'Deactivated',     cls: 'badge badge-client',   rank: 3 },
+    activated:       { label: 'Activated',       cls: 'badge badge-member',   rank: 4 },
   };
+  const ATTENTION = new Set(['never_signed_in', 'not_activated', 'not_provisioned']);
 
-  // Live roster only (active/pending); attention-first, then by name.
+  // Live roster only (active/pending), with the tab's filters applied; attention-first, then by name.
   const list = _employees
     .filter(e => e.status === 'active' || e.status === 'pending')
+    .filter(e => !_acctDept  || e.department_code === _acctDept)
+    .filter(e => !_acctEmpId || e.id === _acctEmpId)
     .map(e => ({ e, st: _activationState(e) }))
+    .filter(x => !_acctState || x.st === _acctState)
     .sort((a, b) => (META[a.st].rank - META[b.st].rank) ||
                     (a.e.full_name || '').localeCompare(b.e.full_name || ''));
 
   if (list.length === 0) {
     wrap.innerHTML = `<div class="empty-state" style="margin-top:40px">
-      <div class="empty-state-title">No active accounts</div></div>`;
+      <div class="empty-state-title">No matching accounts</div></div>`;
     return;
   }
 
-  const pending = list.filter(x => x.st !== 'activated').length;
+  const pending = list.filter(x => ATTENTION.has(x.st)).length;
   const signIn = a => (a && a.last_sign_in_at)
     ? _esc(a.last_sign_in_at.slice(0, 10))
     : '<span class="text-muted">never</span>';
@@ -391,7 +433,7 @@ function _renderAccountPanel() {
   wrap.innerHTML = `
     <div class="text-muted" style="margin-bottom:var(--sp-3);font-size:var(--font-sm)">
       ${pending === 0
-        ? '✓ All active accounts have set their password.'
+        ? '✓ No accounts awaiting activation.'
         : `<strong style="color:var(--text-primary)">${pending}</strong> account${pending === 1 ? '' : 's'} awaiting activation — click a row to provision or reset.`}
     </div>
     <div class="table-wrapper">
@@ -420,6 +462,22 @@ function _renderAccountPanel() {
     const emp = _employees.find(x => x.id === tr.dataset.id);
     if (emp) tr.addEventListener('click', () => _openModal(emp));
   });
+}
+
+// Inject + wire an empSelect picker into a `<span id="{prefix}-search-slot">`.
+function _wireEmpSearch(prefix, onPick) {
+  const slot = document.getElementById(`${prefix}-search-slot`);
+  if (!slot) return;
+  slot.innerHTML = empSelectHtml(prefix, _employees, { placeholder: 'Search name or ID…' });
+  wireEmpSelect(prefix, _employees, emp => onPick(emp?.id ?? null));
+}
+
+// Re-fetch the roster after a mutation (provision / save / link / deactivate) and
+// re-render the active tab, so the UI is fresh without a manual page reload.
+async function _refreshEmployees() {
+  try { _employees = await getEmployees(); } catch { /* keep stale list on error */ }
+  if (_activeTab === 'account') await _loadAccountPanel();
+  else _renderTable();
 }
 
 // ── Create / Edit modal ───────────────────────────────────────
@@ -776,6 +834,9 @@ function _renderModal(isEdit, admin) {
                  </button>
                  <button class="btn btn-ghost btn-sm" id="em-clear-mfa-btn" style="color:#ef9a9a;border-color:#ef9a9a;">
                    Clear 2FA
+                 </button>
+                 <button class="btn btn-ghost btn-sm" id="em-deact-btn" style="color:#bdbdbd;border-color:#888;">
+                   ${_isDeactivated(emp) ? 'Reactivate' : 'Deactivate'} account
                  </button>`
               : ''}
           </div>
@@ -793,7 +854,7 @@ function _renderModal(isEdit, admin) {
       </div>
     </div>`;
 
-  // Close handlers
+  // Close handlers (✕ / Cancel / backdrop; Esc handled globally in app.html)
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#em-modal-close').addEventListener('click', close);
   mount.querySelector('#em-modal-cancel').addEventListener('click', close);
@@ -876,6 +937,10 @@ function _renderModal(isEdit, admin) {
   // ── Provision account (admin, edit mode, no linked user) ────
   if (admin && isEdit) {
     mount.querySelector('#em-provision-btn')?.addEventListener('click', async () => {
+      if (!_modalEmployee.contact_email) {
+        window.showToast?.('Set the work email (Personal tab) and click SAVE before provisioning', 'error');
+        return;
+      }
       const btn = mount.querySelector('#em-provision-btn');
       btn.disabled = true;
       btn.textContent = 'Provisioning…';
@@ -908,6 +973,7 @@ function _renderModal(isEdit, admin) {
           `<span style="color:var(--accent)">✓ Account provisioned</span> — ${_esc(result.email)}`;
         btn.style.display = 'none';
         window.showToast?.('Account provisioned', 'success');
+        await _refreshEmployees();   // pick up the new user_id link so the tab/table update without a reload
       } catch (err) {
         window.showToast?.(err.message, 'error');
         btn.disabled = false;
@@ -975,6 +1041,42 @@ function _renderModal(isEdit, admin) {
       } finally {
         btn.disabled = false;
         btn.textContent = 'Clear 2FA';
+      }
+    });
+
+    // ── Deactivate / Reactivate account (admin, edit mode, has linked user) ──
+    mount.querySelector('#em-deact-btn')?.addEventListener('click', async () => {
+      const makeActive = _isDeactivated(_modalEmployee);   // currently off → reactivate; else deactivate
+      const verb = makeActive ? 'Reactivate' : 'Deactivate';
+      const ok = await confirmModal({
+        title: verb + ' account',
+        message: makeActive
+          ? `Reactivate ${_modalEmployee.full_name}'s account? They'll be able to sign in again.`
+          : `Deactivate ${_modalEmployee.full_name}'s account? They will not be able to sign in until reactivated. Their employee record and data are kept.`,
+        confirmText: verb, danger: !makeActive,
+      });
+      if (!ok) return;
+      const btn = mount.querySelector('#em-deact-btn');
+      btn.disabled = true;
+      btn.textContent = (makeActive ? 'Reactivating' : 'Deactivating') + '…';
+      try {
+        const token = getSession()?.access_token;
+        const res = await fetch(`${EDGE}/admin-set-account-active`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ target_user_id: _modalEmployee.user_id, active: makeActive }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Action failed');
+        window.showToast?.(makeActive ? 'Account reactivated' : 'Account deactivated', 'success');
+        _activationMap = (await _fetchActivationMap()) || _activationMap;
+        btn.disabled = false;
+        btn.textContent = (_isDeactivated(_modalEmployee) ? 'Reactivate' : 'Deactivate') + ' account';
+        if (_activeTab === 'account') _renderAccountPanel();
+      } catch (err) {
+        window.showToast?.(err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = verb + ' account';
       }
     });
   }
@@ -1067,7 +1169,7 @@ function _renderModal(isEdit, admin) {
 
       window.showToast?.(isEdit ? 'Employee updated' : 'Employee created', 'success');
       close();
-      _renderTable();
+      await _refreshEmployees();
     } catch (err) {
       window.showToast?.(err.message, 'error');
       saveBtn.disabled = false;

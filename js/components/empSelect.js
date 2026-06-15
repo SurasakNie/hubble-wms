@@ -46,9 +46,17 @@ export function wireEmpSelect(idPrefix, employees, onSelect) {
   if (!input) return;
   input.addEventListener('change', () => {
     const val = input.value.trim();
-    const emp = active.find(e => empOptionLabel(e) === val);
+    if (!val) { onSelect(null); return; }
+    let emp = active.find(e => empOptionLabel(e) === val);
+    if (!emp) {
+      // Format-tolerant fallback: compare on alphanumerics only, so a typed ID
+      // with or without hyphens ("02300356" ⇆ "02-3-003-56") still resolves.
+      const norm = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const nv = norm(val);
+      if (nv) emp = active.find(e =>
+        norm(e.employee_id).includes(nv) || norm(e.full_name).includes(nv) || norm(empOptionLabel(e)).includes(nv));
+    }
     if (emp) onSelect(emp);
-    else if (!val) onSelect(null);
   });
   const clearBtn = input.closest('.emp-select-wrap')?.querySelector('.emp-clear-btn');
   if (clearBtn) {
