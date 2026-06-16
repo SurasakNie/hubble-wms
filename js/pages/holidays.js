@@ -1069,7 +1069,8 @@ function _renderMyLeave(wrap) {
 
   document.getElementById('hl-ml-reset')?.addEventListener('click', () => _renderMyLeave(wrap));
 
-  document.getElementById('hl-ml-submit')?.addEventListener('click', async () => {
+  document.getElementById('hl-ml-submit')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
     const typeCode  = document.getElementById('hl-ml-type').value;
     const startDate = document.getElementById('hl-ml-start').value;
     const endDate   = document.getElementById('hl-ml-end').value;
@@ -1099,6 +1100,7 @@ function _renderMyLeave(wrap) {
       }
     }
 
+    btn.disabled = true;
     try {
       const req = await submitLeaveRequest({
         employeeId: myEmpId, leaveTypeCode: typeCode,
@@ -1110,7 +1112,7 @@ function _renderMyLeave(wrap) {
       window.showToast?.('Leave request submitted', 'success');
       if (isCross) window.showToast?.('Cross-pool deduction flagged for HR review', 'warning');
       _renderMyLeave(wrap);
-    } catch (err) { window.showToast?.(err.message, 'error'); }
+    } catch (err) { btn.disabled = false; window.showToast?.(err.message, 'error'); }
   });
 
   document.getElementById('hl-ml-toggle')?.addEventListener('click', () => {
@@ -1275,7 +1277,8 @@ function _renderFlexSwapForm(body, wrap) {
 
   _wireWeekendBlock('hl-flex-sub');
 
-  document.getElementById('hl-flex-submit')?.addEventListener('click', async () => {
+  document.getElementById('hl-flex-submit')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
     const empId   = _myEmployee?.id;
     const holId   = document.getElementById('hl-flex-holiday').value;
     const subDate = document.getElementById('hl-flex-sub').value;
@@ -1284,12 +1287,13 @@ function _renderFlexSwapForm(body, wrap) {
     if (!subDate) { window.showToast?.('Select a substitute date', 'error'); return; }
     const dow = new Date(subDate + 'T00:00:00').getDay();
     if (dow === 0 || dow === 6) { window.showToast?.('Substitute date must be a weekday (Mon–Fri)', 'error'); return; }
+    btn.disabled = true;
     try {
       const swap = await submitFlexSwap({ employeeId: empId, waivedHolidayId: holId, substituteDate: subDate, swapType: 'move' });
       _flexSwaps = [swap, ..._flexSwaps];
       window.showToast?.('Flex swap submitted', 'success');
       _renderFlex(wrap);
-    } catch (err) { window.showToast?.(err.message, 'error'); }
+    } catch (err) { btn.disabled = false; window.showToast?.(err.message, 'error'); }
   });
 }
 
@@ -1312,19 +1316,21 @@ function _renderWfhForm(body, wrap) {
 
   _wireWeekendBlock('hl-wfh-date');
 
-  document.getElementById('hl-wfh-submit')?.addEventListener('click', async () => {
+  document.getElementById('hl-wfh-submit')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
     const empId  = _myEmployee?.id;
     const wfhDate = document.getElementById('hl-wfh-date').value;
     if (!empId)   { window.showToast?.('No employee record found', 'error'); return; }
     if (!wfhDate) { window.showToast?.('Select a date', 'error'); return; }
     const dow = new Date(wfhDate + 'T00:00:00').getDay();
     if (dow === 0 || dow === 6) { window.showToast?.('WFH date must be a weekday (Mon–Fri)', 'error'); return; }
+    btn.disabled = true;
     try {
       const swap = await submitFlexSwap({ employeeId: empId, waivedHolidayId: null, substituteDate: null, swapType: 'wfh', wfhDate });
       _flexSwaps = [swap, ..._flexSwaps];
       window.showToast?.('WFH request submitted', 'success');
       _renderFlex(wrap);
-    } catch (err) { window.showToast?.(err.message, 'error'); }
+    } catch (err) { btn.disabled = false; window.showToast?.(err.message, 'error'); }
   });
 }
 
@@ -1467,7 +1473,8 @@ function _renderTeamLeave(wrap) {
 
     document.getElementById('hl-tl-reset')?.addEventListener('click', () => _renderTeamLeave(wrap));
 
-    document.getElementById('hl-tl-submit')?.addEventListener('click', async () => {
+    document.getElementById('hl-tl-submit')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
       const empId     = _teamLeaveEmpId;
       const typeCode  = document.getElementById('hl-tl-type').value;
       const startDate = document.getElementById('hl-tl-start').value;
@@ -1498,6 +1505,7 @@ function _renderTeamLeave(wrap) {
         }
       }
 
+      btn.disabled = true;
       try {
         const req = await submitLeaveRequest({
           employeeId: empId, leaveTypeCode: typeCode,
@@ -1509,7 +1517,7 @@ function _renderTeamLeave(wrap) {
         window.showToast?.('Leave request submitted', 'success');
         if (isCross) window.showToast?.('Cross-pool deduction flagged for HR review', 'warning');
         _renderTeamLeave(wrap);
-      } catch (err) { window.showToast?.(err.message, 'error'); }
+      } catch (err) { btn.disabled = false; window.showToast?.(err.message, 'error'); }
     });
   }
 }
@@ -1644,7 +1652,8 @@ function _renderTeamFlex(wrap) {
 
     _wireWeekendBlock('hl-tf-sub');
 
-    document.getElementById('hl-tf-submit')?.addEventListener('click', async () => {
+    document.getElementById('hl-tf-submit')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
       const empId    = _teamFlexEmpId;
       const holId    = document.getElementById('hl-tf-holiday').value;
       const swapType = document.getElementById('hl-tf-type')?.value || 'move';
@@ -1652,12 +1661,13 @@ function _renderTeamFlex(wrap) {
       if (!holId)                          { window.showToast?.('Select a holiday to waive', 'error'); return; }
       if (swapType === 'move' && !subDate) { window.showToast?.('Select a substitute date', 'error'); return; }
       if (swapType === 'move' && _isWeekend(subDate)) { window.showToast?.('Substitute date must be a weekday (Mon–Fri)', 'error'); return; }
+      btn.disabled = true;
       try {
         const swap = await submitFlexSwap({ employeeId: empId, waivedHolidayId: holId, substituteDate: subDate, swapType });
         _flexSwaps = [swap, ..._flexSwaps];
         window.showToast?.('Flex swap submitted', 'success');
         _renderTeamFlex(wrap);
-      } catch (err) { window.showToast?.(err.message, 'error'); }
+      } catch (err) { btn.disabled = false; window.showToast?.(err.message, 'error'); }
     });
   }
 }

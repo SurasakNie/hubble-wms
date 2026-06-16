@@ -1108,36 +1108,55 @@ async function _renderApprovals() {
   _loadApprovals();
 }
 
+// Visible error state for money-critical loads (M-SILENT) — never silently show empty/zero.
+function _loadErrorHtml(retryId, title, sub) {
+  return `
+    <div class="empty-state" style="margin-top:60px">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div class="empty-state-title">${title}</div>
+      <div class="empty-state-sub">${sub}</div>
+      <button class="btn btn-secondary" id="${retryId}" style="margin-top:16px">Retry</button>
+    </div>`;
+}
+
 async function _loadApprovals() {
   const wrap = document.getElementById('ap-body');
   wrap.innerHTML = `<div class="page-loading">Loading…</div>`;
 
-  if (_approvSub === 'pending') {
-    const [exp, expMA, claims, claimsMA, trips, tripsMA, settlements] = await Promise.all([
-      getAllTransactions({ direction:'out', status:'pending' }).catch(()=>[]),
-      getAllTransactions({ direction:'out', status:'manager_approved' }).catch(()=>[]),
-      getAllTravelClaims({ status:'pending' }).catch(()=>[]),
-      getAllTravelClaims({ status:'manager_approved' }).catch(()=>[]),
-      getAllTripRequests({ status:'pending' }).catch(()=>[]),
-      getAllTripRequests({ status:'manager_approved' }).catch(()=>[]),
-      supabase.from('travel_requests').select(
-        'id, employee_id, destination, start_date, end_date, estimated_cost, currency, settlement_actual_amount, settlement_actual_items, settlement_note, settlement_submitted_at, travel_ref, employee:employees(full_name)'
-      ).eq('settlement_status', 'submitted').then(r => r.data || []).catch(()=>[]),
-    ]);
-    _pendingData = {
-      exp:         [...exp, ...expMA],
-      claims:      [...claims, ...claimsMA],
-      trips:       [...trips, ...tripsMA],
-      settlements,
-    };
-    _renderPending(wrap);
-  } else {
-    const [exp, claims, trips] = await Promise.all([
-      getAllTransactions({ direction:'out' }).catch(()=>[]),
-      getAllTravelClaims({}).catch(()=>[]),
-      getAllTripRequests({}).catch(()=>[]),
-    ]);
-    _renderApprovalHistory(wrap, exp, claims, trips);
+  try {
+    if (_approvSub === 'pending') {
+      const [exp, expMA, claims, claimsMA, trips, tripsMA, settlements] = await Promise.all([
+        getAllTransactions({ direction:'out', status:'pending' }),
+        getAllTransactions({ direction:'out', status:'manager_approved' }),
+        getAllTravelClaims({ status:'pending' }),
+        getAllTravelClaims({ status:'manager_approved' }),
+        getAllTripRequests({ status:'pending' }),
+        getAllTripRequests({ status:'manager_approved' }),
+        supabase.from('travel_requests').select(
+          'id, employee_id, destination, start_date, end_date, estimated_cost, currency, settlement_actual_amount, settlement_actual_items, settlement_note, settlement_submitted_at, travel_ref, employee:employees(full_name)'
+        ).eq('settlement_status', 'submitted').then(r => { if (r.error) throw r.error; return r.data || []; }),
+      ]);
+      _pendingData = {
+        exp:         [...exp, ...expMA],
+        claims:      [...claims, ...claimsMA],
+        trips:       [...trips, ...tripsMA],
+        settlements,
+      };
+      _renderPending(wrap);
+    } else {
+      const [exp, claims, trips] = await Promise.all([
+        getAllTransactions({ direction:'out' }),
+        getAllTravelClaims({}),
+        getAllTripRequests({}),
+      ]);
+      _renderApprovalHistory(wrap, exp, claims, trips);
+    }
+  } catch (err) {
+    wrap.innerHTML = _loadErrorHtml('ap-retry', 'Couldn’t load approvals',
+      'A network or database error occurred — pending items may be hidden. Check your connection and retry.');
+    document.getElementById('ap-retry')?.addEventListener('click', _loadApprovals);
   }
 }
 
@@ -1429,12 +1448,15 @@ function _openEditModal(kind, item) {
       approveBtn.disabled = true;
       try {
         await _doSave();
+        // Two-stage approve; checkpoint local status after each step so a partial
+        // failure (e.g. the finance step errors) leaves a clean retry path instead
+        // of stranding the item at manager_approved with a stale 'pending' status (M-APPROVE).
         if (item.status === 'pending') {
           await approveFns[kind](item.id, 'manager', _profile.id);
-          await approveFns[kind](item.id, 'finance', _profile.id);
-        } else {
-          await approveFns[kind](item.id, 'finance', _profile.id);
+          item.status = 'manager_approved';
         }
+        await approveFns[kind](item.id, 'finance', _profile.id);
+        item.status = 'approved';
         window.showToast?.('Saved & Approved.', 'success');
         close();
         window.refreshExpenseBadge?.();
@@ -1615,12 +1637,18 @@ async function _loadPettyCash() {
   const wrap = document.getElementById('pc-body');
   wrap.innerHTML = `<div class="page-loading">Loading…</div>`;
   if (_pettyCashSub === 'topup') { _renderTopupForm(wrap); return; }
-  const [bal, txns, pending] = await Promise.all([
-    getRunningBalance().catch(() => ({ in:0, out:0, balance:0 })),
-    getAllTransactions({}).catch(() => []),
-    getPendingReimbursements().catch(() => ({ txns:[], claims:[] })),
-  ]);
-  _renderLedger(wrap, bal, txns, pending);
+  try {
+    const [bal, txns, pending] = await Promise.all([
+      getRunningBalance(),
+      getAllTransactions({}),
+      getPendingReimbursements(),
+    ]);
+    _renderLedger(wrap, bal, txns, pending);
+  } catch (err) {
+    wrap.innerHTML = _loadErrorHtml('pc-retry', 'Couldn’t load petty cash',
+      'The float balance and ledger could not be retrieved — the figures shown could be wrong. Check your connection and retry.');
+    document.getElementById('pc-retry')?.addEventListener('click', _loadPettyCash);
+  }
 }
 
 function _renderLedger(wrap, bal, txns, pending) {
