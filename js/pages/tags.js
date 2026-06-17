@@ -4,6 +4,7 @@
 
 import { getTags, createTag, updateTag, deleteTag, getTagUsage } from '../api/tags.js';
 import { isAdmin } from '../auth.js';
+import { esc, attr } from '../format.js';
 
 // 12 base hues from tokens.css + 12 darker variants (Material 700/800), all distinct.
 const TAG_COLORS = [
@@ -176,8 +177,8 @@ function _renderRow(t, admin) {
     <tr data-id="${t.id}">
       <td style="font-weight:500;">
         <span style="display:inline-flex; align-items:center; gap:8px;">
-          <span style="width:12px; height:12px; border-radius:50%; background:${_attr(color)}; flex:none;"></span>
-          ${_esc(t.name || '')}
+          <span style="width:12px; height:12px; border-radius:50%; background:${attr(color)}; flex:none;"></span>
+          ${esc(t.name || '')}
         </span>
       </td>
       <td><span class="text-muted">${count}</span></td>
@@ -240,7 +241,7 @@ function _openEditModal(tag) {
         <div class="modal-body" style="display:flex; flex-direction:column; gap:var(--sp-3);">
           <label style="display:flex; flex-direction:column; gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Name</span>
-            <input type="text" id="tag-edit-name" value="${_attr(tag.name || '')}">
+            <input type="text" id="tag-edit-name" value="${attr(tag.name || '')}">
           </label>
           <label style="display:flex; flex-direction:column; gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Color</span>
@@ -309,7 +310,7 @@ function _confirmDelete(tag) {
           <button class="modal-close" id="tag-del-close">&times;</button>
         </div>
         <div class="modal-body">
-          <p style="margin:0;">Delete <strong>${_esc(tag.name || '')}</strong>? ${usageNote}This cannot be undone.</p>
+          <p style="margin:0;">Delete <strong>${esc(tag.name || '')}</strong>? ${usageNote}This cannot be undone.</p>
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" id="tag-del-cancel">Cancel</button>
@@ -364,16 +365,3 @@ function _wireSwatches(picker, onPick) {
   });
 }
 
-// ──────────────────────────────────────────────────────────────
-// HELPERS
-// ──────────────────────────────────────────────────────────────
-
-function _esc(s) {
-  return String(s).replace(/[&<>"']/g, ch => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
-  ));
-}
-
-function _attr(s) {
-  return String(s).replace(/"/g, '&quot;');
-}

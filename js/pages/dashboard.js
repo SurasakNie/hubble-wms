@@ -10,7 +10,7 @@ import { empSelectHtml, wireEmpSelect } from '../components/empSelect.js';
 import { isClientRole, isAdmin, isManager } from '../auth.js';
 import { weekNavHtml, wireWeekNav, updateWeekNavLabel } from '../components/weekNav.js';
 import {
-  setFormatPrefs, formatDuration, getMondayOf, getWeekDays, DAY_LABELS,
+  setFormatPrefs, formatDuration, getMondayOf, getWeekDays, DAY_LABELS, esc, attr,
 } from '../format.js';
 
 let _profile   = null;
@@ -151,7 +151,7 @@ function _renderProjectOptions() {
   const sel = document.getElementById('db-project');
   if (!sel) return;
   sel.innerHTML = `<option value="">All projects</option>` +
-    _projects.map(p => `<option value="${p.id}">${_esc(p.name)}</option>`).join('');
+    _projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   sel.value = _projectId;
 }
 
@@ -252,8 +252,8 @@ function _renderKpis(agg, entryCount) {
   const tc = agg.topClient;
   grid.innerHTML =
     _kpiCard('Total time', total, `${entryCount} ${entryCount === 1 ? 'entry' : 'entries'}`) +
-    _kpiCard('Top project', tp ? _esc(tp.name) : '—', tp ? formatDuration(tp.total) : '') +
-    _kpiCard('Top client',  tc ? _esc(tc.name) : '—', tc ? formatDuration(tc.total) : '');
+    _kpiCard('Top project', tp ? esc(tp.name) : '—', tp ? formatDuration(tp.total) : '') +
+    _kpiCard('Top client',  tc ? esc(tc.name) : '—', tc ? formatDuration(tc.total) : '');
 }
 
 // ── Stacked bar ─────────────────────────────────────────────
@@ -352,8 +352,8 @@ function _renderLegend(agg) {
   el.innerHTML = agg.projects.map(p => {
     const pct = Math.round(p.total / agg.grand * 100);
     return `<div class="donut-legend-item">
-      <span class="donut-legend-dot" style="background:${_attr(p.color)};"></span>
-      <span class="donut-legend-name">${_esc(p.name)}</span>
+      <span class="donut-legend-dot" style="background:${attr(p.color)};"></span>
+      <span class="donut-legend-name">${esc(p.name)}</span>
       <span class="donut-legend-value">${formatDuration(p.total)}</span>
       <span class="donut-legend-pct">${pct}%</span>
     </div>`;
@@ -371,8 +371,8 @@ function _renderActivities(agg) {
   }
   el.innerHTML = agg.activities.map(a => `
     <div class="activity-item">
-      <span class="activity-dot" style="background:${_attr(a.color)};"></span>
-      <span class="activity-desc">${_esc(a.desc)}</span>
+      <span class="activity-dot" style="background:${attr(a.color)};"></span>
+      <span class="activity-desc">${esc(a.desc)}</span>
       <span class="activity-hours">${formatDuration(a.hours)}</span>
     </div>`).join('');
 }
@@ -386,12 +386,3 @@ function _destroyCharts() {
   if (_donutChart) { _donutChart.destroy(); _donutChart = null; }
 }
 
-function _esc(s) {
-  return String(s).replace(/[&<>"']/g, ch => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
-  ));
-}
-
-function _attr(s) {
-  return String(s).replace(/"/g, '&quot;');
-}

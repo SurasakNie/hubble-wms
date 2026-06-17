@@ -11,7 +11,7 @@ import {
   getPendingNameChangeRequests, reviewNameChangeRequest,
 } from '../api/users.js';
 import { isAdmin }          from '../auth.js';
-import { formatAmount }     from '../format.js';
+import { formatAmount, esc, attr } from '../format.js';
 import { supabase }         from '../config.js';
 
 const ROLES = ['owner', 'admin', 'manager', 'member', 'client'];
@@ -113,7 +113,7 @@ export async function render(profile) {
   // Populate group filter now that groups are loaded.
   document.getElementById('tm-group-filter').innerHTML =
     `<option value="all">All groups</option>` +
-    _groups.map(g => `<option value="${g.id}">${_esc(g.name)}</option>`).join('');
+    _groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('');
 
   _renderMembersTable();
 }
@@ -233,16 +233,16 @@ function _renderMembersTable() {
 function _renderMemberRow(u, admin, groups, pendingNameReq = null) {
   const isSelf   = u.id === _profile.id;
   const ncrChip  = (admin && pendingNameReq)
-    ? ` <span class="badge badge-pending tm-ncr-chip" data-req-id="${_attr(pendingNameReq.id)}"
+    ? ` <span class="badge badge-pending tm-ncr-chip" data-req-id="${attr(pendingNameReq.id)}"
              style="cursor:pointer;font-size:10px;margin-left:4px;vertical-align:middle;"
-             title="Review name change request → &quot;${_attr(pendingNameReq.requested_name)}&quot;">
+             title="Review name change request → &quot;${attr(pendingNameReq.requested_name)}&quot;">
          name change ↗
        </span>`
     : '';
-  const name     = _esc(u.name || '—')
+  const name     = esc(u.name || '—')
     + (isSelf ? ' <span class="text-muted" style="font-size:var(--font-xs)">(you)</span>' : '')
     + ncrChip;
-  const email  = u.email ? _esc(u.email) : '<span class="text-muted">—</span>';
+  const email  = u.email ? esc(u.email) : '<span class="text-muted">—</span>';
 
   // BILLABLE RATE — column only present in the API payload for admin/owner.
   let rateCell;
@@ -250,7 +250,7 @@ function _renderMemberRow(u, admin, groups, pendingNameReq = null) {
     rateCell = '<span class="text-muted">—</span>';
   } else {
     const rateDisp = (u.billable_rate !== null && u.billable_rate !== undefined)
-      ? _esc(formatAmount(u.billable_rate))
+      ? esc(formatAmount(u.billable_rate))
       : '<span class="text-muted">—</span>';
     rateCell = `${rateDisp}
       <a href="#" class="tm-rate-change" data-id="${u.id}"
@@ -273,10 +273,10 @@ function _renderMemberRow(u, admin, groups, pendingNameReq = null) {
     const fullGroup = _groups.find(x => x.id === g.id);
     const leader = fullGroup?.leader;
     const leaderHint = leader
-      ? ` <span class="text-muted" style="font-size:10px;" title="Team leader">↑ ${_esc(leader.name || leader.email)}</span>`
+      ? ` <span class="text-muted" style="font-size:10px;" title="Team leader">↑ ${esc(leader.name || leader.email)}</span>`
       : '';
     return `
-    <span class="tag-chip">${_esc(g.name)}${leaderHint}${admin ? `
+    <span class="tag-chip">${esc(g.name)}${leaderHint}${admin ? `
       <span class="remove-tag tm-group-remove" data-uid="${u.id}" data-gid="${g.id}"
             style="cursor:pointer; margin-left:2px;">×</span>` : ''}</span>`;
   }).join('');
@@ -286,7 +286,7 @@ function _renderMemberRow(u, admin, groups, pendingNameReq = null) {
     ? `<select class="tm-group-add" data-id="${u.id}"
                style="width:auto; min-width:90px; padding:4px 8px; font-size:var(--font-xs);">
          <option value="">+ Group</option>
-         ${addable.map(g => `<option value="${g.id}">${_esc(g.name)}</option>`).join('')}
+         ${addable.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}
        </select>`
     : (!admin && groups.length === 0 ? '<span class="text-muted">—</span>' : '');
 
@@ -433,15 +433,15 @@ function _openNameChangeReview(req, user) {
         <div class="modal-body">
           <div class="form-group">
             <label>Current name</label>
-            <div style="color:var(--text-primary);padding:6px 0;">${_esc(user.name || '—')}</div>
+            <div style="color:var(--text-primary);padding:6px 0;">${esc(user.name || '—')}</div>
           </div>
           <div class="form-group">
             <label>Requested name</label>
-            <div style="font-weight:600;color:var(--accent);padding:6px 0;">${_esc(req.requested_name)}</div>
+            <div style="font-weight:600;color:var(--accent);padding:6px 0;">${esc(req.requested_name)}</div>
           </div>
           <div class="form-group">
             <label>Reason</label>
-            <div style="color:var(--text-muted);font-style:italic;padding:6px 0;">&ldquo;${_esc(req.reason)}&rdquo;</div>
+            <div style="color:var(--text-muted);font-style:italic;padding:6px 0;">&ldquo;${esc(req.reason)}&rdquo;</div>
           </div>
           <div id="ncr-reject-section" style="display:none;margin-top:var(--sp-2);">
             <div class="form-group">
@@ -520,10 +520,10 @@ function _openRateModal(user) {
           <button class="modal-close" id="tm-rate-close">&times;</button>
         </div>
         <div class="modal-body" style="display:flex; flex-direction:column; gap:var(--sp-3);">
-          <div class="text-muted" style="font-size:var(--font-sm)">${_esc(user.name || user.email || '')}</div>
+          <div class="text-muted" style="font-size:var(--font-sm)">${esc(user.name || user.email || '')}</div>
           <label style="display:flex; flex-direction:column; gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Rate (THB per hour)</span>
-            <input type="number" id="tm-rate-input" min="0" step="0.01" value="${_attr(String(current))}" placeholder="0.00">
+            <input type="number" id="tm-rate-input" min="0" step="0.01" value="${attr(String(current))}" placeholder="0.00">
           </label>
         </div>
         <div class="modal-footer">
@@ -582,7 +582,7 @@ function _openAddMemberModal() {
              they appear here and you can set their role, billable rate, and group.</p>
           <label style="display:flex; flex-direction:column; gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">App link</span>
-            <input type="text" id="tm-add-url" readonly value="${_attr(appUrl)}">
+            <input type="text" id="tm-add-url" readonly value="${attr(appUrl)}">
           </label>
         </div>
         <div class="modal-footer">
@@ -668,11 +668,11 @@ function _renderGroupsTable() {
           ${_groups.map(g => {
             const leader = g.leader;
             const leaderName = leader
-              ? _esc(leader.name || leader.email || '—')
+              ? esc(leader.name || leader.email || '—')
               : '<span class="text-muted">—</span>';
             return `
             <tr data-id="${g.id}">
-              <td style="font-weight:500;">${_esc(g.name)}</td>
+              <td style="font-weight:500;">${esc(g.name)}</td>
               <td><span class="text-muted">${(g.group_members || []).length}</span></td>
               <td>${leaderName}</td>
               <td class="col-actions">
@@ -723,7 +723,7 @@ function _openGroupMembersModal(group) {
     <div class="modal-backdrop" id="tm-gm-backdrop">
       <div class="modal modal-sm">
         <div class="modal-header">
-          <span class="modal-title">Manage members — ${_esc(group.name)}</span>
+          <span class="modal-title">Manage members — ${esc(group.name)}</span>
           <button class="modal-close" id="tm-gm-close">&times;</button>
         </div>
         <div class="modal-body" id="tm-gm-body" style="display:flex; flex-direction:column; gap:var(--sp-3);"></div>
@@ -776,7 +776,7 @@ function _renderGmBody(group, deptFilter) {
         const isLeader = group.leader_id === u.id;
         return `
         <div style="display:flex; align-items:center; justify-content:space-between; gap:var(--sp-2);">
-          <span>${_esc(u.name || u.email || '—')}${isLeader ? ' <span class="badge badge-admin" style="font-size:10px;">Leader</span>' : ''}</span>
+          <span>${esc(u.name || u.email || '—')}${isLeader ? ' <span class="badge badge-admin" style="font-size:10px;">Leader</span>' : ''}</span>
           <span class="remove-tag tm-gm-remove" data-uid="${u.id}" title="Remove"
                 style="cursor:pointer; color:var(--text-muted);">×</span>
         </div>`;
@@ -786,7 +786,7 @@ function _renderGmBody(group, deptFilter) {
   const addSelect = addable.length
     ? `<select id="tm-gm-add" style="width:100%;">
          <option value="">+ Add member</option>
-         ${addable.map(u => `<option value="${u.id}">${_esc(u.name || u.email)}</option>`).join('')}
+         ${addable.map(u => `<option value="${u.id}">${esc(u.name || u.email)}</option>`).join('')}
        </select>`
     : `<div class="text-muted" style="font-size:var(--font-xs)">${activeDept ? 'No unassigned members in this department.' : 'Everyone is already in this group.'}</div>`;
 
@@ -796,7 +796,7 @@ function _renderGmBody(group, deptFilter) {
       <span class="text-muted" style="font-size:var(--font-xs); display:block; margin-bottom:6px;">Team leader</span>
       <select id="tm-gm-leader" style="width:100%;">
         <option value="">(none)</option>
-        ${members.map(u => `<option value="${u.id}"${group.leader_id===u.id?' selected':''}>${_esc(u.name||u.email)}</option>`).join('')}
+        ${members.map(u => `<option value="${u.id}"${group.leader_id===u.id?' selected':''}>${esc(u.name||u.email)}</option>`).join('')}
       </select>
     </div>` : '';
 
@@ -901,7 +901,7 @@ function _confirmDeleteGroup(group) {
           <button class="modal-close" id="tm-gdel-close">&times;</button>
         </div>
         <div class="modal-body">
-          <p style="margin:0;">Delete <strong>${_esc(group.name)}</strong>?
+          <p style="margin:0;">Delete <strong>${esc(group.name)}</strong>?
              Members keep their accounts; only the group is removed.</p>
         </div>
         <div class="modal-footer">
@@ -941,7 +941,7 @@ function _refreshGroupFilter() {
   if (!sel) return;
   const prev = sel.value;
   sel.innerHTML = `<option value="all">All groups</option>` +
-    _groups.map(g => `<option value="${g.id}">${_esc(g.name)}</option>`).join('');
+    _groups.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('');
   // Restore selection if the group still exists, else reset.
   if (_groups.some(g => g.id === prev) || prev === 'all') {
     sel.value = prev;
@@ -974,13 +974,3 @@ function _renderRemindersPanel() {
 // ──────────────────────────────────────────────────────────────
 
 function _cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
-
-function _esc(s) {
-  return String(s).replace(/[&<>"']/g, ch => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
-  ));
-}
-
-function _attr(s) {
-  return String(s).replace(/"/g, '&quot;');
-}

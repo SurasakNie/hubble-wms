@@ -17,6 +17,7 @@ import { isClientRole, isAdmin, isManager } from '../auth.js';
 import {
   setFormatPrefs, getMondayOf, getWeekDays,
   formatDuration, toISODate, todayISO, DAY_LABELS,
+  esc, attr,
 } from '../format.js';
 
 let _profile    = null;
@@ -192,14 +193,14 @@ function _renderGrid() {
     const clientName = _cells[pid]?.project?.clients?.name
       || _projects.find(p => p.id === pid)?.client?.name || '';
     const clientHtml = clientName
-      ? ` <span class="ts-proj-client">- ${_esc(clientName)}</span>`
+      ? ` <span class="ts-proj-client">- ${esc(clientName)}</span>`
       : '';
     return `
       <tr data-pid="${pid}">
         <td class="ts-proj-col">
           <span class="ts-proj">
-            <span class="ts-dot" style="background:${_attr(_projColor(pid))};"></span>
-            <span class="ts-proj-name">${_esc(_projName(pid))}</span>${clientHtml}
+            <span class="ts-dot" style="background:${attr(_projColor(pid))};"></span>
+            <span class="ts-proj-name">${esc(_projName(pid))}</span>${clientHtml}
           </span>
         </td>
         ${dayCells}
@@ -309,7 +310,7 @@ function _enterEdit(td) {
   const prev = td.textContent.trim();
 
   td.classList.add('ts-editing');
-  td.innerHTML = `<input type="text" class="ts-cell-input" value="${_attr(prev)}" inputmode="decimal" placeholder="0:00">`;
+  td.innerHTML = `<input type="text" class="ts-cell-input" value="${attr(prev)}" inputmode="decimal" placeholder="0:00">`;
   const input = td.querySelector('input');
   input.focus();
   input.select();
@@ -380,7 +381,7 @@ function _renderAddOptions() {
   const shown = new Set(_rowProjectIds());
   const opts = _projects
     .filter(p => !shown.has(p.id))
-    .map(p => `<option value="${p.id}">${_esc(p.name)}</option>`)
+    .map(p => `<option value="${p.id}">${esc(p.name)}</option>`)
     .join('');
   sel.innerHTML = `<option value="">+ Add project row</option>${opts}`;
 }
@@ -388,13 +389,3 @@ function _renderAddOptions() {
 // ──────────────────────────────────────────────────────────────
 // HELPERS
 // ──────────────────────────────────────────────────────────────
-
-function _esc(s) {
-  return String(s).replace(/[&<>"']/g, ch => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
-  ));
-}
-
-function _attr(s) {
-  return String(s).replace(/"/g, '&quot;');
-}

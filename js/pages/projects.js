@@ -9,7 +9,7 @@ import {
 import { getClients } from '../api/clients.js';
 import { getUsers, getGroups } from '../api/users.js';
 import { isAdmin, isManager } from '../auth.js';
-import { formatDuration, formatAmount } from '../format.js';
+import { formatDuration, formatAmount, esc, attr } from '../format.js';
 
 const PALETTE = [
   '#03a9f4', '#9c27b0', '#4caf50', '#e91e63', '#ff9800', '#00bcd4',
@@ -93,7 +93,7 @@ export async function render(profile) {
   const clientSel = document.getElementById('pr-client');
   if (clientSel) {
     clientSel.innerHTML = `<option value="">All clients</option>` +
-      _clients.map(c => `<option value="${c.id}">${_esc(c.name || '')}</option>`).join('');
+      _clients.map(c => `<option value="${c.id}">${esc(c.name || '')}</option>`).join('');
   }
 
   _renderTable();
@@ -190,7 +190,7 @@ function _renderTable() {
 function _renderRow(p, admin) {
   const color    = p.color || '#03a9f4';
   const archived = !!p.is_archived;
-  const clientNm = p.client?.name ? _esc(p.client.name) : '<span class="text-muted">—</span>';
+  const clientNm = p.client?.name ? esc(p.client.name) : '<span class="text-muted">—</span>';
   const access   = p.access === 'private'
     ? '<span class="badge badge-client">Private</span>'
     : '<span class="badge badge-member">Public</span>';
@@ -243,7 +243,7 @@ function _renderRow(p, admin) {
       <td style="font-weight:500;">
         <span style="display:inline-flex; align-items:center; gap:8px;">
           <span class="project-dot pr-dot" style="background:${color}; width:12px; height:12px;${admin ? ' cursor:pointer;' : ''}" title="${admin ? 'Change color' : ''}"></span>
-          ${_esc(p.name || '')}
+          ${esc(p.name || '')}
           ${archived ? '<span class="badge badge-client" style="margin-left:4px;">archived</span>' : ''}
         </span>
       </td>
@@ -350,7 +350,7 @@ function _openAssignModal(project) {
     <div class="modal-backdrop" id="pr-as-backdrop">
       <div class="modal modal-sm" id="pr-as-modal">
         <div class="modal-header">
-          <span class="modal-title">Assign members — ${_esc(project.name || '')}</span>
+          <span class="modal-title">Assign members — ${esc(project.name || '')}</span>
           <button class="modal-close" id="pr-as-close">&times;</button>
         </div>
         <div class="modal-body" id="pr-as-body" style="display:flex; flex-direction:column; gap:var(--sp-3); max-height:60vh; overflow:auto;">
@@ -401,7 +401,7 @@ function _renderAssignBody(project, tasks, users, groups) {
   const row = (kind, id, label, checked) => `
     <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
       <input type="checkbox" class="pr-as-cb" data-kind="${kind}" data-id="${id}"${checked ? ' checked' : ''}>
-      <span>${_esc(label)}</span>
+      <span>${esc(label)}</span>
     </label>`;
 
   const groupRows = groups.length
@@ -469,20 +469,20 @@ function _openProjectModal(project) {
         <div class="modal-body" style="display:flex; flex-direction:column; gap:var(--sp-3);">
           <label style="display:flex; flex-direction:column; gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Name</span>
-            <input type="text" id="pr-f-name" value="${_attr(cur.name || '')}" placeholder="Project name">
+            <input type="text" id="pr-f-name" value="${attr(cur.name || '')}" placeholder="Project name">
           </label>
           <label style="display:flex; flex-direction:column; gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Client</span>
             <select id="pr-f-client">
               <option value=""${isEdit ? '' : ' disabled selected'}>${isEdit ? 'No client' : 'Select a client…'}</option>
-              ${_clients.map(c => `<option value="${c.id}"${c.id === curClientId ? ' selected' : ''}>${_esc(c.name || '')}</option>`).join('')}
+              ${_clients.map(c => `<option value="${c.id}"${c.id === curClientId ? ' selected' : ''}>${esc(c.name || '')}</option>`).join('')}
             </select>
           </label>
           <div style="display:flex; flex-direction:column; gap:6px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Color</span>
             <div id="pr-f-swatches" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
               ${PALETTE.map(c => _swatch(c, c === (cur.color || '#03a9f4'))).join('')}
-              <input type="color" id="pr-f-color" value="${_attr(cur.color || '#03a9f4')}"
+              <input type="color" id="pr-f-color" value="${attr(cur.color || '#03a9f4')}"
                      style="width:32px; height:28px; padding:2px; cursor:pointer;" title="Custom color">
             </div>
           </div>
@@ -594,7 +594,7 @@ function _openColorPicker(project) {
         <div class="modal-body">
           <div id="pr-col-swatches" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
             ${PALETTE.map(c => _swatch(c, c === (project.color || '#03a9f4'))).join('')}
-            <input type="color" id="pr-col-input" value="${_attr(project.color || '#03a9f4')}"
+            <input type="color" id="pr-col-input" value="${attr(project.color || '#03a9f4')}"
                    style="width:32px; height:28px; padding:2px; cursor:pointer;" title="Custom color">
           </div>
         </div>
@@ -649,7 +649,7 @@ function _confirmDelete(project) {
           <button class="modal-close" id="pr-del-close">&times;</button>
         </div>
         <div class="modal-body">
-          <p style="margin:0;">Delete <strong>${_esc(project.name || '')}</strong>? This cannot be undone.
+          <p style="margin:0;">Delete <strong>${esc(project.name || '')}</strong>? This cannot be undone.
           Time entries on this project may block deletion — consider archiving instead.</p>
         </div>
         <div class="modal-footer">
@@ -686,13 +686,3 @@ function _confirmDelete(project) {
 // ──────────────────────────────────────────────────────────────
 // HELPERS
 // ──────────────────────────────────────────────────────────────
-
-function _esc(s) {
-  return String(s).replace(/[&<>"']/g, ch => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
-  ));
-}
-
-function _attr(s) {
-  return String(s).replace(/"/g, '&quot;');
-}

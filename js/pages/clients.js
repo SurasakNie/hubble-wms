@@ -5,6 +5,7 @@
 import { getClients, createClient, updateClient, deleteClient } from '../api/clients.js';
 import { isAdmin, getSession } from '../auth.js';
 import { supabase } from '../config.js';
+import { esc, attr } from '../format.js';
 
 const EDGE = 'https://sjkggguedgtynktymzes.supabase.co/functions/v1';
 
@@ -154,8 +155,8 @@ function _renderTable() {
 }
 
 function _renderRow(c, admin) {
-  const name     = _esc(c.name || '');
-  const address  = c.address ? _esc(c.address) : '<span class="text-muted">—</span>';
+  const name     = esc(c.name || '');
+  const address  = c.address ? esc(c.address) : '<span class="text-muted">—</span>';
   const inactive = !c.is_active;
 
   const archiveBtn = admin
@@ -200,7 +201,7 @@ function _renderRow(c, admin) {
     <tr data-id="${c.id}"${inactive ? ' style="opacity:0.55"' : ''}>
       <td style="font-weight:500;">${name}${inactive ? ' <span class="badge badge-client" style="margin-left:6px;">inactive</span>' : ''}</td>
       <td>${address}</td>
-      <td><span class="text-muted">${_esc(c.currency || 'THB')}</span></td>
+      <td><span class="text-muted">${esc(c.currency || 'THB')}</span></td>
       <td class="col-actions">
         <div class="row-actions">
           <button class="row-action-btn act-edit" title="Edit">
@@ -286,11 +287,11 @@ function _openEditModal(client) {
         <div class="modal-body" style="display:flex; flex-direction:column; gap:var(--sp-3);">
           <label style="display:flex; flex-direction:column; gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Name</span>
-            <input type="text" id="cl-edit-name" value="${_attr(client.name || '')}">
+            <input type="text" id="cl-edit-name" value="${attr(client.name || '')}">
           </label>
           <label style="display:flex; flex-direction:column; gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Address</span>
-            <input type="text" id="cl-edit-address" value="${_attr(client.address || '')}">
+            <input type="text" id="cl-edit-address" value="${attr(client.address || '')}">
           </label>
           <label style="display:flex; flex-direction:column; gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Currency</span>
@@ -358,7 +359,7 @@ function _confirmDelete(client) {
           <button class="modal-close" id="cl-del-close">&times;</button>
         </div>
         <div class="modal-body">
-          <p style="margin:0;">Delete <strong>${_esc(client.name || '')}</strong>? This cannot be undone.</p>
+          <p style="margin:0;">Delete <strong>${esc(client.name || '')}</strong>? This cannot be undone.</p>
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost" id="cl-del-cancel">Cancel</button>
@@ -401,7 +402,7 @@ async function _openLoginsModal(client) {
     <div class="modal-backdrop" id="cl-lg-backdrop">
       <div class="modal modal-md" id="cl-lg-modal">
         <div class="modal-header">
-          <span class="modal-title">Client logins — ${_esc(client.name || '')}</span>
+          <span class="modal-title">Client logins — ${esc(client.name || '')}</span>
           <button class="modal-close" id="cl-lg-close">&times;</button>
         </div>
         <div class="modal-body" style="display:flex; flex-direction:column; gap:var(--sp-3);">
@@ -441,10 +442,10 @@ async function _openLoginsModal(client) {
       listEl.innerHTML = `
         <div class="table-wrapper"><table>
           <thead><tr><th>Client ID</th><th>Name</th><th>Email</th></tr></thead>
-          <tbody>${data.map(u => `<tr><td>${_esc(u.client_code || '—')}</td><td>${_esc(u.name || '—')}</td><td>${_esc(u.email || '—')}</td></tr>`).join('')}</tbody>
+          <tbody>${data.map(u => `<tr><td>${esc(u.client_code || '—')}</td><td>${esc(u.name || '—')}</td><td>${esc(u.email || '—')}</td></tr>`).join('')}</tbody>
         </table></div>`;
     } catch (err) {
-      listEl.innerHTML = `<div class="text-muted">Couldn't load logins: ${_esc(err.message)}</div>`;
+      listEl.innerHTML = `<div class="text-muted">Couldn't load logins: ${esc(err.message)}</div>`;
     }
   }
   refreshList();
@@ -470,9 +471,9 @@ async function _openLoginsModal(client) {
       resultEl.innerHTML = `
         <div class="card" style="background:#1e2329;">
           <div style="font-weight:500; margin-bottom:4px;">Login created</div>
-          <div style="font-size:13px;">Client ID: <strong>${_esc(data.client_code || '—')}</strong></div>
-          <div style="font-size:13px;">Email: ${_esc(email)}</div>
-          <div style="font-size:13px;">Temporary password: <strong>${_esc(data.temp_password || '')}</strong></div>
+          <div style="font-size:13px;">Client ID: <strong>${esc(data.client_code || '—')}</strong></div>
+          <div style="font-size:13px;">Email: ${esc(email)}</div>
+          <div style="font-size:13px;">Temporary password: <strong>${esc(data.temp_password || '')}</strong></div>
           <div class="text-muted" style="font-size:12px; margin-top:6px;">Copy these now — the password is shown only once.</div>
         </div>`;
       mount.querySelector('#cl-lg-name').value = '';
@@ -491,12 +492,3 @@ async function _openLoginsModal(client) {
 // HELPERS
 // ──────────────────────────────────────────────────────────────
 
-function _esc(s) {
-  return String(s).replace(/[&<>"']/g, ch => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
-  ));
-}
-
-function _attr(s) {
-  return String(s).replace(/"/g, '&quot;');
-}

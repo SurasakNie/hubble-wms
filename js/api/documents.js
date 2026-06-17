@@ -1,7 +1,7 @@
 // api/documents.js - Module M6: automated document templates and generated documents
 
 import { supabase } from '../config.js';
-import { esc, formatDate } from '../format.js';
+import { esc, formatDate, sanitizeHtml } from '../format.js';
 
 const TEMPLATE_SELECT = `
   id, template_type, name, description, template_html, merge_fields,
@@ -295,12 +295,15 @@ async function resolveTemplate(template, employeeId, customFields, profile) {
   const context = await buildMergeContext(employeeId, fields, profile);
   const requiredMissing = missingRequiredFields(template, context);
   const templateHtml = stripEmptyOptionalBlocks(String(template.template_html || ''), context);
-  const contentHtml = templateHtml.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, key) => {
+  const merged = templateHtml.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, key) => {
     const value = getPath(context, key);
     if (isBlank(value) && OPTIONAL_STANDALONE_FIELDS.has(key)) return '';
     return isBlank(value) ? `<span class="doc-missing">{{${esc(key)}}}</span>` : esc(value);
   });
-  const unresolved = Array.from(contentHtml.matchAll(/\{\{[^}]+\}\}/g)).map(m => m[0]);
+  const unresolved = Array.from(merged.matchAll(/\{\{[^}]+\}\}/g)).map(m => m[0]);
+  // Sanitize the merged template markup before it is ever rendered/stored.
+  // Merge VALUES are already esc()'d above; this hardens the template wrapper.
+  const contentHtml = sanitizeHtml(merged);
   return { contentHtml, unresolved, context, requiredMissing };
 }
 

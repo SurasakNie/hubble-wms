@@ -2,7 +2,7 @@
 
 import { isAdmin, isManager } from '../auth.js';
 import { weekNavHtml, wireWeekNav } from '../components/weekNav.js';
-import { setFormatPrefs, getDefaultCurrency, toISODate, todayISO } from '../format.js';
+import { setFormatPrefs, getDefaultCurrency, toISODate, todayISO, esc, attr } from '../format.js';
 import { supabase } from '../config.js';
 import { getProjects } from '../api/projects.js';
 import {
@@ -22,16 +22,15 @@ import {
 } from '../api/expenses.js';
 
 // ── Helpers ───────────────────────────────────────────────────
-const _esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const _fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-const _money = (a, c) => `${Number(a ?? 0).toLocaleString('en',{minimumFractionDigits:2})} ${_esc(c || 'THB')}`;
+const _money = (a, c) => `${Number(a ?? 0).toLocaleString('en',{minimumFractionDigits:2})} ${esc(c || 'THB')}`;
 const _today = () => todayISO();
 const _isWeekend = d => { const x = new Date(d + 'T00:00:00').getDay(); return x === 0 || x === 6; };
 const _nextWeekday = () => { const d = new Date(); d.setHours(0,0,0,0); while (_isWeekend(toISODate(d))) d.setDate(d.getDate()+1); return toISODate(d); };
 
 const STATUS_LABELS = { pending:'Pending', manager_approved:'Mgr Approved', approved:'Approved', rejected:'Rejected', completed:'Completed', cancelled:'Cancelled' };
 const STATUS_CLASS  = { pending:'badge-pending', manager_approved:'badge-warning', approved:'badge-approved', rejected:'badge-rejected', completed:'badge-approved', cancelled:'' };
-const _badge   = s => `<span class="badge ${STATUS_CLASS[s]||''}">${_esc(STATUS_LABELS[s]||s)}</span>`;
+const _badge   = s => `<span class="badge ${STATUS_CLASS[s]||''}">${esc(STATUS_LABELS[s]||s)}</span>`;
 const _settled = s => ['approved','rejected','completed','cancelled'].includes(s);
 
 // ISO week number
@@ -124,11 +123,11 @@ const _curOpts = (sel) => ['THB','USD','EUR','GBP']
   .join('');
 
 const _projOptions = (sel) => `<option value="">— Project / Purpose —</option>` +
-  _projects.map(p => `<option value="${p.id}" ${sel===p.id?'selected':''}>${_esc(p.name)}</option>`).join('');
+  _projects.map(p => `<option value="${p.id}" ${sel===p.id?'selected':''}>${esc(p.name)}</option>`).join('');
 // Required variant: no blank option; auto-selects the first project when sel is absent.
 // Use wherever a project selection is mandatory (e.g. Trip Request).
 const _projOptionsReq = (sel) =>
-  _projects.map((p, i) => `<option value="${p.id}" ${(sel ? sel===p.id : i===0)?'selected':''}>${_esc(p.name)}</option>`).join('');
+  _projects.map((p, i) => `<option value="${p.id}" ${(sel ? sel===p.id : i===0)?'selected':''}>${esc(p.name)}</option>`).join('');
 
 // ── Mileage route location boxes ─────────────────────────────
 function _currentRoute() {
@@ -146,7 +145,7 @@ function _drawRoute(values, isRound) {
     const ph = isFirst ? 'Start point' : (isLast ? 'Destination' : `Stop ${i}`);
     const canRemove = n > 2 && !isFirst && !isLast;
     return `<div style="display:flex;gap:8px;align-items:center;">
-      <input class="form-input ml-loc" type="text" value="${_esc(v || '')}" placeholder="${_esc(ph)}" style="flex:1;">
+      <input class="form-input ml-loc" type="text" value="${esc(v || '')}" placeholder="${esc(ph)}" style="flex:1;">
       ${canRemove ? `<button type="button" class="btn btn-ghost btn-sm ml-loc-remove" data-i="${i}" title="Remove stop">✕</button>` : ''}
     </div>`;
   }).join('');
@@ -341,7 +340,7 @@ async function _renderMyExpenses() {
     txns.filter(t => ['approved','rejected'].includes(t.status) && localStorage.getItem(`exp_seen_${t.id}`) !== '1').map(t => t.id)
   );
   // Everyone sees the full out-category list; office categories lock the project below.
-  const catOpts = _catOut().map(c => `<option value="${c.id}">${_esc(c.name)}</option>`).join('');
+  const catOpts = _catOut().map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
 
   body.innerHTML = `
     <div style="max-width:540px;display:flex;flex-direction:column;gap:18px;margin-bottom:32px;">
@@ -428,12 +427,12 @@ function _txnTable(txns, unseenIds = new Set()) {
     <thead><tr><th>Date</th><th>Category</th><th>Project</th><th>Amount</th><th>Note</th><th>Status</th><th></th></tr></thead>
     <tbody>${txns.map(t => `<tr${unseenIds.has(t.id) ? ' style="background:rgba(76,175,80,0.07)"' : ''}>
       <td>${_fmt(t.txn_date)}</td>
-      <td>${_esc(t.category?.name || '—')}</td>
-      <td>${_esc(t.project?.name || '—')}</td>
+      <td>${esc(t.category?.name || '—')}</td>
+      <td>${esc(t.project?.name || '—')}</td>
       <td>${_money(t.amount, t.currency)}</td>
-      <td>${_esc(t.note || '—')}</td>
-      <td>${_badge(t.status)}${unseenIds.has(t.id) ? ' <span class="badge" style="background:#4caf50;color:#000;font-size:10px;vertical-align:middle;margin-left:4px">NEW</span>' : ''}${t.rejection_reason ? `<br><small class="text-muted">${_esc(t.rejection_reason)}</small>` : ''}</td>
-      <td style="white-space:nowrap;">${t.status === 'pending' ? `<button class="btn btn-sm btn-ghost exp-cancel-txn" data-id="${_esc(t.id)}">Cancel</button>` : t.status === 'manager_approved' ? `<span style="font-size:11px;color:var(--text-muted);">Contact admin</span>` : ''}</td>
+      <td>${esc(t.note || '—')}</td>
+      <td>${_badge(t.status)}${unseenIds.has(t.id) ? ' <span class="badge" style="background:#4caf50;color:#000;font-size:10px;vertical-align:middle;margin-left:4px">NEW</span>' : ''}${t.rejection_reason ? `<br><small class="text-muted">${esc(t.rejection_reason)}</small>` : ''}</td>
+      <td style="white-space:nowrap;">${t.status === 'pending' ? `<button class="btn btn-sm btn-ghost exp-cancel-txn" data-id="${esc(t.id)}">Cancel</button>` : t.status === 'manager_approved' ? `<span style="font-size:11px;color:var(--text-muted);">Contact admin</span>` : ''}</td>
     </tr>`).join('')}</tbody></table></div>`;
 }
 
@@ -496,7 +495,7 @@ async function _renderMileage() {
   );
   // Personal vehicle options (exclude public transport code)
   const pvOpts = _vehicles.filter(v => v.code !== 'public')
-    .map(v => `<option value="${v.code}" data-rate="${v.fuel_rate_per_km}" data-dep="${v.depreciation_per_km}">${_esc(v.label)} (฿${(Number(v.fuel_rate_per_km)+Number(v.depreciation_per_km)).toFixed(2)}/km)</option>`).join('');
+    .map(v => `<option value="${v.code}" data-rate="${v.fuel_rate_per_km}" data-dep="${v.depreciation_per_km}">${esc(v.label)} (฿${(Number(v.fuel_rate_per_km)+Number(v.depreciation_per_km)).toFixed(2)}/km)</option>`).join('');
 
   wrap.innerHTML = `
     <div style="max-width:540px;display:flex;flex-direction:column;gap:18px;margin-bottom:32px;">
@@ -662,13 +661,13 @@ function _claimTable(claims, unseenIds = new Set()) {
     <thead><tr><th>Date</th><th>Route</th><th>Vehicle</th><th>Trip</th><th>Distance</th><th>Reimb.+Dep.</th><th>Status</th><th></th></tr></thead>
     <tbody>${claims.map(c => `<tr${unseenIds.has(c.id) ? ' style="background:rgba(76,175,80,0.07)"' : ''}>
       <td>${_fmt(c.travel_date)}</td>
-      <td>${_esc(c.route)}</td>
-      <td>${c.vehicle_code === 'public' ? _esc(c.note?.split(' — ')[0] || 'Public transport') : _esc(c.vehicle?.label || c.vehicle_code)}</td>
+      <td>${esc(c.route)}</td>
+      <td>${c.vehicle_code === 'public' ? esc(c.note?.split(' — ')[0] || 'Public transport') : esc(c.vehicle?.label || c.vehicle_code)}</td>
       <td>${c.vehicle_code === 'public' ? 'One way (public)' : c.trip_type === 'round_trip' ? 'Round trip' : 'One way'}</td>
       <td>${c.vehicle_code === 'public' ? '—' : `${Number(c.distance_km||0)} km`}</td>
       <td style="color:var(--color-success,#66bb6a)">${_money(Number(c.computed_reimbursement)+Number(c.computed_depreciation), c.currency)}</td>
-      <td>${_badge(c.status)}${unseenIds.has(c.id) ? ' <span class="badge" style="background:#4caf50;color:#000;font-size:10px;vertical-align:middle;margin-left:4px">NEW</span>' : ''}${c.rejection_reason ? `<br><small class="text-muted">${_esc(c.rejection_reason)}</small>` : ''}</td>
-      <td style="white-space:nowrap;">${c.status === 'pending' ? `<button class="btn btn-sm btn-ghost exp-cancel-claim" data-id="${_esc(c.id)}">Cancel</button>` : c.status === 'manager_approved' ? `<span style="font-size:11px;color:var(--text-muted);">Contact admin</span>` : ''}</td>
+      <td>${_badge(c.status)}${unseenIds.has(c.id) ? ' <span class="badge" style="background:#4caf50;color:#000;font-size:10px;vertical-align:middle;margin-left:4px">NEW</span>' : ''}${c.rejection_reason ? `<br><small class="text-muted">${esc(c.rejection_reason)}</small>` : ''}</td>
+      <td style="white-space:nowrap;">${c.status === 'pending' ? `<button class="btn btn-sm btn-ghost exp-cancel-claim" data-id="${esc(c.id)}">Cancel</button>` : c.status === 'manager_approved' ? `<span style="font-size:11px;color:var(--text-muted);">Contact admin</span>` : ''}</td>
     </tr>`).join('')}</tbody></table></div>`;
 }
 
@@ -746,7 +745,7 @@ function _tripItemRow(def) {
     <div class="tp-item-wrap" style="display:flex;flex-direction:column;gap:4px;">
       <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;">
         <input type="checkbox" class="tp-item" id="tp-item-daily" data-def="daily">
-        ${_esc(def.label)}
+        ${esc(def.label)}
       </label>
       <div id="tp-daily-row" style="display:none;padding-left:26px;display:none;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -773,17 +772,17 @@ function _tripItemRow(def) {
   return `
     <div class="tp-item-wrap" style="display:flex;flex-direction:column;gap:4px;">
       <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;">
-        <input type="checkbox" class="tp-item" data-def="${_esc(def.id)}">
-        ${_esc(def.label)}
+        <input type="checkbox" class="tp-item" data-def="${esc(def.id)}">
+        ${esc(def.label)}
       </label>
-      <div class="tp-qty-row" id="tp-qty-${_esc(def.id)}" style="display:none;padding-left:26px;">
+      <div class="tp-qty-row" id="tp-qty-${esc(def.id)}" style="display:none;padding-left:26px;">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           <span class="text-muted" style="font-size:12px;">฿</span>
-          <input class="form-input tp-amt" type="number" placeholder="0.00" min="0" step="0.01" style="max-width:110px;" data-def="${_esc(def.id)}">
+          <input class="form-input tp-amt" type="number" placeholder="0.00" min="0" step="0.01" style="max-width:110px;" data-def="${esc(def.id)}">
           <span class="text-muted" style="font-size:12px;">×</span>
-          <input class="form-input tp-qty" type="number" placeholder="1" min="1" step="1" style="max-width:70px;" data-def="${_esc(def.id)}">
-          <span class="text-muted" style="font-size:12px;">${_esc(def.qtyLabel)}</span>
-          <span class="tp-sub text-muted" style="font-size:12px;" data-def="${_esc(def.id)}"></span>
+          <input class="form-input tp-qty" type="number" placeholder="1" min="1" step="1" style="max-width:70px;" data-def="${esc(def.id)}">
+          <span class="text-muted" style="font-size:12px;">${esc(def.qtyLabel)}</span>
+          <span class="tp-sub text-muted" style="font-size:12px;" data-def="${esc(def.id)}"></span>
         </div>
       </div>
     </div>`;
@@ -957,14 +956,14 @@ function _tripTable(trips, unseenIds = new Set()) {
         ? `<small class="badge badge-warning">Submitted</small>`
         : '—';
       return `<tr${unseenIds.has(t.id) ? ' style="background:rgba(76,175,80,0.07)"' : ''}>
-        <td>${_esc(t.travel_ref || '—')}</td>
-        <td>${_esc(t.destination)}</td>
+        <td>${esc(t.travel_ref || '—')}</td>
+        <td>${esc(t.destination)}</td>
         <td>${_fmt(t.start_date)} – ${_fmt(t.end_date)}</td>
         <td>${t.estimated_cost ? _money(t.estimated_cost, t.currency) : '—'}</td>
-        <td>${_esc(t.purpose)}${(t.cost_items && t.cost_items.length) ? `<br><small class="text-muted">Incl: ${_esc(_costItemsText(t.cost_items))}</small>` : ''}</td>
-        <td>${_badge(t.status)}${unseenIds.has(t.id) ? ' <span class="badge" style="background:#4caf50;color:#000;font-size:10px;vertical-align:middle;margin-left:4px">NEW</span>' : ''}${t.rejection_reason ? `<br><small class="text-muted">${_esc(t.rejection_reason)}</small>` : ''}</td>
+        <td>${esc(t.purpose)}${(t.cost_items && t.cost_items.length) ? `<br><small class="text-muted">Incl: ${esc(_costItemsText(t.cost_items))}</small>` : ''}</td>
+        <td>${_badge(t.status)}${unseenIds.has(t.id) ? ' <span class="badge" style="background:#4caf50;color:#000;font-size:10px;vertical-align:middle;margin-left:4px">NEW</span>' : ''}${t.rejection_reason ? `<br><small class="text-muted">${esc(t.rejection_reason)}</small>` : ''}</td>
         <td>${settleCell}</td>
-        <td style="white-space:nowrap;">${t.status === 'pending' ? `<button class="btn btn-sm btn-ghost exp-cancel-trip" data-id="${_esc(t.id)}">Cancel</button>` : t.status === 'manager_approved' ? `<span style="font-size:11px;color:var(--text-muted);">Contact admin</span>` : ''}</td>
+        <td style="white-space:nowrap;">${t.status === 'pending' ? `<button class="btn btn-sm btn-ghost exp-cancel-trip" data-id="${esc(t.id)}">Cancel</button>` : t.status === 'manager_approved' ? `<span style="font-size:11px;color:var(--text-muted);">Contact admin</span>` : ''}</td>
       </tr>`;
     }).join('')}</tbody></table></div>`;
 }
@@ -975,7 +974,7 @@ function _settlementPanel(t) {
   const rows = items.length
     ? items.map((it, i) => `
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-        <span style="min-width:180px;font-size:13px;">${_esc(it.label || `Item ${i+1}`)}</span>
+        <span style="min-width:180px;font-size:13px;">${esc(it.label || `Item ${i+1}`)}</span>
         <span class="text-muted" style="font-size:12px;">Advance: ${it.amount != null ? `฿${Number(it.amount).toLocaleString('en',{minimumFractionDigits:2})}` : (it.subtotal != null ? `฿${Number(it.subtotal).toLocaleString('en',{minimumFractionDigits:2})}` : '—')}</span>
         <span class="text-muted" style="font-size:12px;">→ Actual ฿</span>
         <input class="form-input tp-settle-actual" type="number" placeholder="0.00" min="0" step="0.01"
@@ -986,17 +985,17 @@ function _settlementPanel(t) {
         <input class="form-input tp-settle-actual-total" type="number" placeholder="0.00" min="0" step="0.01" style="max-width:130px;">
       </div>`;
   return `
-    <div style="border:1px solid var(--color-warning,#f59e0b);border-radius:8px;padding:16px;margin-bottom:16px;" id="settle-panel-${_esc(t.id)}">
-      <div style="font-weight:600;margin-bottom:8px;">${_esc(t.destination)} &nbsp;·&nbsp; ${_fmt(t.start_date)} – ${_fmt(t.end_date)}</div>
+    <div style="border:1px solid var(--color-warning,#f59e0b);border-radius:8px;padding:16px;margin-bottom:16px;" id="settle-panel-${esc(t.id)}">
+      <div style="font-weight:600;margin-bottom:8px;">${esc(t.destination)} &nbsp;·&nbsp; ${_fmt(t.start_date)} – ${_fmt(t.end_date)}</div>
       <div style="margin-bottom:4px;font-size:13px;color:var(--text-muted);">Advance issued: ${t.estimated_cost ? _money(t.estimated_cost, t.currency) : '—'}</div>
       <div style="margin-bottom:12px;font-size:13px;">Enter actual amounts per item below:</div>
       ${rows}
       <label class="form-label" style="margin-top:8px;">Note (optional)
-        <input class="form-input tp-settle-note" type="text" id="tp-settle-note-${_esc(t.id)}" placeholder="Receipts attached, any explanation…">
+        <input class="form-input tp-settle-note" type="text" id="tp-settle-note-${esc(t.id)}" placeholder="Receipts attached, any explanation…">
       </label>
       <div style="margin-top:8px;display:flex;gap:10px;align-items:center;">
-        <button class="btn btn-primary tp-settle-submit" data-id="${_esc(t.id)}">Submit Settlement</button>
-        <span class="tp-settle-diff text-muted" style="font-size:13px;" id="tp-settle-diff-${_esc(t.id)}"></span>
+        <button class="btn btn-primary tp-settle-submit" data-id="${esc(t.id)}">Submit Settlement</button>
+        <span class="tp-settle-diff text-muted" style="font-size:13px;" id="tp-settle-diff-${esc(t.id)}"></span>
       </div>
     </div>`;
 }
@@ -1172,28 +1171,28 @@ function _renderPending(wrap) {
     : `<div class="table-wrapper"><table class="data-table">
         <thead><tr><th>Employee</th><th>Date</th><th>Category</th><th>Project</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>${exp.map(t => `<tr>
-          <td>${_esc(t.employee?.full_name||'—')}</td><td>${_fmt(t.txn_date)}</td>
-          <td>${_esc(t.category?.name||'—')}</td><td>${_esc(t.project?.name||'—')}</td>
+          <td>${esc(t.employee?.full_name||'—')}</td><td>${_fmt(t.txn_date)}</td>
+          <td>${esc(t.category?.name||'—')}</td><td>${esc(t.project?.name||'—')}</td>
           <td>${_money(t.amount,t.currency)}</td><td>${_badge(t.status)}</td>
-          <td class="row-actions">${_admin?`<button class="btn btn-ghost btn-sm edit-pend-btn" data-kind="exp" data-id="${_esc(t.id)}">Edit</button>`:''}${_apprBtns('exp', t.id, t.status)}</td></tr>`).join('')}</tbody></table></div>`;
+          <td class="row-actions">${_admin?`<button class="btn btn-ghost btn-sm edit-pend-btn" data-kind="exp" data-id="${esc(t.id)}">Edit</button>`:''}${_apprBtns('exp', t.id, t.status)}</td></tr>`).join('')}</tbody></table></div>`;
 
   const clTable = claims.length === 0 ? `<p class="empty-state">None.</p>`
     : `<div class="table-wrapper"><table class="data-table">
         <thead><tr><th>Employee</th><th>Date</th><th>Route</th><th>Vehicle</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>${claims.map(c => `<tr>
-          <td>${_esc(c.employee?.full_name||'—')}</td><td>${_fmt(c.travel_date)}</td>
-          <td>${_esc(c.route)}</td><td>${_esc(c.vehicle?.label||c.vehicle_code)}</td>
+          <td>${esc(c.employee?.full_name||'—')}</td><td>${_fmt(c.travel_date)}</td>
+          <td>${esc(c.route)}</td><td>${esc(c.vehicle?.label||c.vehicle_code)}</td>
           <td>${_money(Number(c.computed_reimbursement)+Number(c.computed_depreciation),c.currency)}</td><td>${_badge(c.status)}</td>
-          <td class="row-actions">${_admin?`<button class="btn btn-ghost btn-sm edit-pend-btn" data-kind="claim" data-id="${_esc(c.id)}">Edit</button>`:''}${_apprBtns('claim', c.id, c.status)}</td></tr>`).join('')}</tbody></table></div>`;
+          <td class="row-actions">${_admin?`<button class="btn btn-ghost btn-sm edit-pend-btn" data-kind="claim" data-id="${esc(c.id)}">Edit</button>`:''}${_apprBtns('claim', c.id, c.status)}</td></tr>`).join('')}</tbody></table></div>`;
 
   const tpTable = trips.length === 0 ? `<p class="empty-state">None.</p>`
     : `<div class="table-wrapper"><table class="data-table">
         <thead><tr><th>Employee</th><th>Destination</th><th>Dates</th><th>Est. Cost</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>${trips.map(t => `<tr>
-          <td>${_esc(t.employee?.full_name||'—')}</td>
-          <td>${_esc(t.destination)}${(t.cost_items && t.cost_items.length) ? `<br><small class="text-muted">Incl: ${_esc(_costItemsText(t.cost_items))}</small>` : ''}</td>
+          <td>${esc(t.employee?.full_name||'—')}</td>
+          <td>${esc(t.destination)}${(t.cost_items && t.cost_items.length) ? `<br><small class="text-muted">Incl: ${esc(_costItemsText(t.cost_items))}</small>` : ''}</td>
           <td>${_fmt(t.start_date)}–${_fmt(t.end_date)}</td><td>${t.estimated_cost?_money(t.estimated_cost,t.currency):'—'}</td>
-          <td>${_badge(t.status)}</td><td class="row-actions">${_admin?`<button class="btn btn-ghost btn-sm edit-pend-btn" data-kind="trip" data-id="${_esc(t.id)}">Edit</button>`:''}${_apprBtns('trip', t.id, t.status)}</td></tr>`).join('')}</tbody></table></div>`;
+          <td>${_badge(t.status)}</td><td class="row-actions">${_admin?`<button class="btn btn-ghost btn-sm edit-pend-btn" data-kind="trip" data-id="${esc(t.id)}">Edit</button>`:''}${_apprBtns('trip', t.id, t.status)}</td></tr>`).join('')}</tbody></table></div>`;
 
   const stTable = settlements.length === 0 ? `<p class="empty-state">None.</p>`
     : `<div class="table-wrapper"><table class="data-table">
@@ -1206,12 +1205,12 @@ function _renderPending(wrap) {
             : diff > 0 ? `Claim ฿${diff.toLocaleString('en',{minimumFractionDigits:2})} more`
             : `Return ฿${Math.abs(diff).toLocaleString('en',{minimumFractionDigits:2})}`;
           return `<tr>
-            <td>${_esc(t.employee?.full_name||'—')}</td>
-            <td>${_esc(t.travel_ref||'—')}<br><small class="text-muted">${_esc(t.destination)}</small></td>
+            <td>${esc(t.employee?.full_name||'—')}</td>
+            <td>${esc(t.travel_ref||'—')}<br><small class="text-muted">${esc(t.destination)}</small></td>
             <td>${_fmt(t.start_date)}–${_fmt(t.end_date)}</td>
             <td>${_money(advance, t.currency)}</td>
-            <td>${_money(actual, t.currency)}<br><small class="text-muted">${_esc(diffLabel)}</small></td>
-            <td class="row-actions"><button class="btn btn-primary btn-sm settle-appr-btn" data-id="${_esc(t.id)}">Approve</button></td></tr>`;
+            <td>${_money(actual, t.currency)}<br><small class="text-muted">${esc(diffLabel)}</small></td>
+            <td class="row-actions"><button class="btn btn-primary btn-sm settle-appr-btn" data-id="${esc(t.id)}">Approve</button></td></tr>`;
         }).join('')}</tbody></table></div>`;
 
   const cats = [
@@ -1283,8 +1282,8 @@ function _wireApprovals(wrap) {
 function _openEditModal(kind, item) {
   document.getElementById('exp-edit-modal')?.remove();
 
-  const catOpts = _catOut().map(c => `<option value="${c.id}" ${(item.category_id && parseInt(item.category_id)===c.id)?'selected':''}>${_esc(c.name)}</option>`).join('');
-  const vehOpts = _vehicles.map(v => `<option value="${_esc(v.code)}" ${item.vehicle_code===v.code?'selected':''}>${_esc(v.label)} (${Number(v.fuel_rate_per_km)+Number(v.depreciation_per_km)}/km)</option>`).join('');
+  const catOpts = _catOut().map(c => `<option value="${c.id}" ${(item.category_id && parseInt(item.category_id)===c.id)?'selected':''}>${esc(c.name)}</option>`).join('');
+  const vehOpts = _vehicles.map(v => `<option value="${esc(v.code)}" ${item.vehicle_code===v.code?'selected':''}>${esc(v.label)} (${Number(v.fuel_rate_per_km)+Number(v.depreciation_per_km)}/km)</option>`).join('');
 
   let title = '', formHtml = '';
 
@@ -1292,7 +1291,7 @@ function _openEditModal(kind, item) {
     title = 'Edit Expense';
     formHtml = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-        <label class="form-label">Date <span class="required">*</span><input class="form-input" type="date" id="edt-date" value="${_esc(item.txn_date||'')}" max="${_today()}" style="color-scheme:dark"></label>
+        <label class="form-label">Date <span class="required">*</span><input class="form-input" type="date" id="edt-date" value="${esc(item.txn_date||'')}" max="${_today()}" style="color-scheme:dark"></label>
         <label class="form-label">Amount <span class="required">*</span><input class="form-input" type="number" id="edt-amt" value="${item.amount||''}" step="0.01" min="0.01"></label>
       </div>
       <label class="form-label" style="display:block;margin-bottom:14px;">Category<select class="form-input" id="edt-cat"><option value="">—</option>${catOpts}</select></label>
@@ -1304,15 +1303,15 @@ function _openEditModal(kind, item) {
           <option ${item.currency==='EUR'?'selected':''}>EUR</option>
           <option ${item.currency==='GBP'?'selected':''}>GBP</option>
         </select></label>
-        <label class="form-label">Receipt URL<input class="form-input" type="url" id="edt-rcpt" value="${_esc(item.receipt_url||'')}" placeholder="https://…"></label>
+        <label class="form-label">Receipt URL<input class="form-input" type="url" id="edt-rcpt" value="${esc(item.receipt_url||'')}" placeholder="https://…"></label>
       </div>
-      <label class="form-label" style="display:block;">Note<textarea class="form-input" id="edt-note" rows="3" style="resize:vertical;">${_esc(item.note||'')}</textarea></label>`;
+      <label class="form-label" style="display:block;">Note<textarea class="form-input" id="edt-note" rows="3" style="resize:vertical;">${esc(item.note||'')}</textarea></label>`;
   } else if (kind === 'claim') {
     const isPublic = item.vehicle_code === 'public';
     title = 'Edit Mileage Claim';
     formHtml = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-        <label class="form-label">Travel Date <span class="required">*</span><input class="form-input" type="date" id="edt-date" value="${_esc(item.travel_date||'')}" style="color-scheme:dark"></label>
+        <label class="form-label">Travel Date <span class="required">*</span><input class="form-input" type="date" id="edt-date" value="${esc(item.travel_date||'')}" style="color-scheme:dark"></label>
         <label class="form-label">Project / Purpose<select class="form-input" id="edt-proj">${_projOptions(item.project_id)}</select></label>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
@@ -1322,21 +1321,21 @@ function _openEditModal(kind, item) {
           <option value="round_trip" ${item.trip_type==='round_trip'?'selected':''}>Round Trip</option>
         </select></label>
       </div>
-      <label class="form-label" style="display:block;margin-bottom:14px;">Route <span class="required">*</span><input class="form-input" type="text" id="edt-route" value="${_esc(item.route||'')}"></label>
+      <label class="form-label" style="display:block;margin-bottom:14px;">Route <span class="required">*</span><input class="form-input" type="text" id="edt-route" value="${esc(item.route||'')}"></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
         <label class="form-label">Distance (km)${isPublic?' <span class="text-muted">(n/a public)</span>':''}<input class="form-input" type="number" id="edt-dist" value="${item.distance_km||''}" step="0.1" min="0" ${isPublic?'disabled':''}></label>
         <label class="form-label">Manual Amount (public transport)${!isPublic?' <span class="text-muted">(n/a)</span>':''}<input class="form-input" type="number" id="edt-manual" value="${item.manual_amount||''}" step="0.01" min="0" ${!isPublic?'disabled':''}></label>
       </div>
-      <label class="form-label" style="display:block;">Note<input class="form-input" type="text" id="edt-note" value="${_esc(item.note||'')}"></label>`;
+      <label class="form-label" style="display:block;">Note<input class="form-input" type="text" id="edt-note" value="${esc(item.note||'')}"></label>`;
   } else if (kind === 'trip') {
     title = 'Edit Trip Request';
     formHtml = `
-      <label class="form-label" style="display:block;margin-bottom:14px;">Destination <span class="required">*</span><input class="form-input" type="text" id="edt-dest" value="${_esc(item.destination||'')}"></label>
+      <label class="form-label" style="display:block;margin-bottom:14px;">Destination <span class="required">*</span><input class="form-input" type="text" id="edt-dest" value="${esc(item.destination||'')}"></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
-        <label class="form-label">Start Date <span class="required">*</span><input class="form-input" type="date" id="edt-start" value="${_esc(item.start_date||'')}" style="color-scheme:dark"></label>
-        <label class="form-label">End Date <span class="required">*</span><input class="form-input" type="date" id="edt-end" value="${_esc(item.end_date||'')}" style="color-scheme:dark"></label>
+        <label class="form-label">Start Date <span class="required">*</span><input class="form-input" type="date" id="edt-start" value="${esc(item.start_date||'')}" style="color-scheme:dark"></label>
+        <label class="form-label">End Date <span class="required">*</span><input class="form-input" type="date" id="edt-end" value="${esc(item.end_date||'')}" style="color-scheme:dark"></label>
       </div>
-      <label class="form-label" style="display:block;margin-bottom:14px;">Purpose <span class="required">*</span><textarea class="form-input" id="edt-purpose" rows="2" style="resize:vertical;">${_esc(item.purpose||'')}</textarea></label>
+      <label class="form-label" style="display:block;margin-bottom:14px;">Purpose <span class="required">*</span><textarea class="form-input" id="edt-purpose" rows="2" style="resize:vertical;">${esc(item.purpose||'')}</textarea></label>
       <label class="form-label" style="display:block;margin-bottom:14px;">Project <span class="required">*</span><select class="form-input" id="edt-proj" required>${_projOptionsReq(item.project_id)}</select></label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px;">
         <label class="form-label">Est. Cost<input class="form-input" type="number" id="edt-cost" value="${item.estimated_cost||''}" step="0.01" min="0"></label>
@@ -1484,11 +1483,11 @@ function _renderApprovalHistory(wrap, exp, claims, trips) {
     ${items.length===0?`<p class="empty-state">None.</p>`:`<div class="table-wrapper"><table class="data-table">
       <thead><tr><th>Type</th><th>Employee</th><th>Detail</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>${items.map(i => `<tr>
-        <td>${i.type}</td><td>${_esc(i.who||'—')}</td><td>${_esc(i.detail)}</td>
+        <td>${i.type}</td><td>${esc(i.who||'—')}</td><td>${esc(i.detail)}</td>
         <td>${i.amount}</td><td>${_badge(i.status)}</td>
         <td class="row-actions">
-          ${_admin ? `<button class="btn btn-ghost btn-sm edit-hist-btn" data-kind="${_esc(i.kind)}" data-id="${_esc(i.id)}">Edit</button>` : ''}
-          <button class="btn btn-ghost btn-sm ovr-btn" data-kind="${_esc(i.kind)}" data-id="${_esc(i.id)}">Override</button>
+          ${_admin ? `<button class="btn btn-ghost btn-sm edit-hist-btn" data-kind="${esc(i.kind)}" data-id="${esc(i.id)}">Edit</button>` : ''}
+          <button class="btn btn-ghost btn-sm ovr-btn" data-kind="${esc(i.kind)}" data-id="${esc(i.id)}">Override</button>
         </td>
       </tr>`).join('')}</tbody></table></div>`}
   `;
@@ -1511,10 +1510,10 @@ function _openRejectModal(kind, id) {
 
   let detail = '';
   if (item) {
-    const who = _esc(item.employee?.full_name || '');
-    if (kind === 'exp')   detail = [who, _esc(item.category_name||''), item.amount != null ? `${_esc(String(item.amount))} ${_esc(item.currency||'')}` : ''].filter(Boolean).join(' · ');
-    if (kind === 'claim') detail = [who, _esc(item.vehicle_type||''), _esc(item.route_summary||'')].filter(Boolean).join(' · ');
-    if (kind === 'trip')  detail = [who, _esc(item.destination||''), _esc(item.start_date||'')].filter(Boolean).join(' · ');
+    const who = esc(item.employee?.full_name || '');
+    if (kind === 'exp')   detail = [who, esc(item.category_name||''), item.amount != null ? `${esc(String(item.amount))} ${esc(item.currency||'')}` : ''].filter(Boolean).join(' · ');
+    if (kind === 'claim') detail = [who, esc(item.vehicle_type||''), esc(item.route_summary||'')].filter(Boolean).join(' · ');
+    if (kind === 'trip')  detail = [who, esc(item.destination||''), esc(item.start_date||'')].filter(Boolean).join(' · ');
   }
 
   const modal = document.createElement('div');
@@ -1577,11 +1576,11 @@ function _openOverrideModal(kind, id) {
       </div>
       <div class="modal-body">
         ${item ? `<p style="margin:0 0 12px;font-size:13px;color:var(--text-secondary);">
-          ${_esc(item.type)} · ${_esc(item.who || '—')} · ${_esc(item.detail || '')}
+          ${esc(item.type)} · ${esc(item.who || '—')} · ${esc(item.detail || '')}
         </p>` : ''}
         <label class="form-label">Status
           <select class="form-input" id="ovr-status">
-            ${opts.map(s => `<option value="${s}"${item && item.status === s ? ' selected' : ''}>${_esc(STATUS_LABELS[s] || s)}</option>`).join('')}
+            ${opts.map(s => `<option value="${s}"${item && item.status === s ? ' selected' : ''}>${esc(STATUS_LABELS[s] || s)}</option>`).join('')}
           </select></label>
       </div>
       <div class="modal-footer">
@@ -1701,25 +1700,25 @@ function _renderLedger(wrap, bal, txns, pending) {
       ${empEntries.map(e => `
       <details class="card" style="padding:12px 16px;">
         <summary style="cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none;-webkit-appearance:none;">
-          <span style="font-weight:600">${_esc(e.employee?.full_name || '—')}</span>
+          <span style="font-weight:600">${esc(e.employee?.full_name || '—')}</span>
           <span class="text-muted" style="font-size:12px">${e.txns.length + e.claims.length} item${(e.txns.length + e.claims.length) !== 1 ? 's' : ''}</span>
           <span style="margin-left:auto;font-weight:600;color:var(--color-success,#66bb6a)">${_money(e.total)}</span>
-          <button class="btn btn-ghost btn-sm pc-mark-emp-paid" data-empid="${_esc(e.employee?.id || '')}" style="margin-left:8px">Mark paid</button>
+          <button class="btn btn-ghost btn-sm pc-mark-emp-paid" data-empid="${esc(e.employee?.id || '')}" style="margin-left:8px">Mark paid</button>
         </summary>
         <table style="font-size:13px;width:100%;border-collapse:collapse;margin-top:8px;">
           ${e.txns.map(t => `<tr style="border-top:1px solid var(--border-color,#333);">
             <td style="padding:4px 6px;color:var(--text-secondary)">${_fmt(t.txn_date)}</td>
-            <td style="padding:4px 6px">${_esc(t.category?.name || '—')}</td>
-            <td style="padding:4px 6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(t.note || '—')}</td>
+            <td style="padding:4px 6px">${esc(t.category?.name || '—')}</td>
+            <td style="padding:4px 6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.note || '—')}</td>
             <td style="padding:4px 6px;text-align:right;font-weight:500">${_money(t.amount, t.currency)}</td>
-            <td style="padding:4px 6px;text-align:center;"><input type="checkbox" class="pc-item-check" data-type="txn" data-id="${_esc(t.id)}"></td>
+            <td style="padding:4px 6px;text-align:center;"><input type="checkbox" class="pc-item-check" data-type="txn" data-id="${esc(t.id)}"></td>
           </tr>`).join('')}
           ${e.claims.map(c => `<tr style="border-top:1px solid var(--border-color,#333);">
             <td style="padding:4px 6px;color:var(--text-secondary)">${_fmt(c.travel_date)}</td>
             <td style="padding:4px 6px">${c.vehicle_code === 'public' ? 'Transport' : 'Mileage'}</td>
-            <td style="padding:4px 6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(c.route || '—')}</td>
+            <td style="padding:4px 6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.route || '—')}</td>
             <td style="padding:4px 6px;text-align:right;font-weight:500">${_money(Number(c.computed_reimbursement)+Number(c.computed_depreciation), c.currency)}</td>
-            <td style="padding:4px 6px;text-align:center;"><input type="checkbox" class="pc-item-check" data-type="claim" data-id="${_esc(c.id)}"></td>
+            <td style="padding:4px 6px;text-align:center;"><input type="checkbox" class="pc-item-check" data-type="claim" data-id="${esc(c.id)}"></td>
           </tr>`).join('')}
           <tr style="border-top:2px solid var(--border-color,#333);">
             <td colspan="3" style="padding:6px 6px;font-weight:600">Total to transfer</td>
@@ -1829,7 +1828,7 @@ function _renderLedger(wrap, bal, txns, pending) {
 function _renderTopupForm(wrap) {
   const prefill = _prefillTopupAmt != null ? Number(_prefillTopupAmt).toFixed(2) : '';
   _prefillTopupAmt = null;   // consume — one-shot
-  const catInOpts = _catIn().map(c => `<option value="${c.id}">${_esc(c.name)}</option>`).join('');
+  const catInOpts = _catIn().map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
   wrap.innerHTML = `
     <div class="card mb-4" style="max-width:680px">
       <div class="section-header">Record Top-up (money in)</div>
@@ -1875,12 +1874,12 @@ function _allTxnTable(txns) {
     <tbody>${txns.map(t => `<tr>
       <td>${_fmt(t.txn_date)}</td>
       <td>${t.direction === 'in' ? '<span class="badge badge-approved">IN</span>' : '<span class="badge">OUT</span>'}</td>
-      <td>${_esc(t.employee?.full_name||'—')}</td>
-      <td>${_esc(t.category?.name||'—')}</td>
-      <td>${_esc(t.project?.name||'—')}</td>
+      <td>${esc(t.employee?.full_name||'—')}</td>
+      <td>${esc(t.category?.name||'—')}</td>
+      <td>${esc(t.project?.name||'—')}</td>
       <td style="color:${t.direction==='in'?'var(--color-success,#66bb6a)':'inherit'}">${_money(t.amount,t.currency)}</td>
       <td>${_badge(t.status)}</td>
-      <td>${_esc(t.note||'')}${t.source==='travel_claim'?' <span class="text-muted">(auto)</span>':''}</td>
+      <td>${esc(t.note||'')}${t.source==='travel_claim'?' <span class="text-muted">(auto)</span>':''}</td>
     </tr>`).join('')}</tbody></table></div>`;
 }
 
@@ -1910,12 +1909,12 @@ async function _recordTopup() {
 
 function _setupPanel() {
   const vehRows = _vehicles.map(v => `<tr>
-    <td>${_esc(v.label)}</td>
+    <td>${esc(v.label)}</td>
     <td><input type="number" class="form-control vr-fuel" data-code="${v.code}" value="${v.fuel_rate_per_km}" step="0.01" style="width:90px"></td>
     <td><input type="number" class="form-control vr-dep" data-code="${v.code}" value="${v.depreciation_per_km}" step="0.01" style="width:90px"></td>
-    <td><button class="btn btn-ghost btn-sm vr-save" data-code="${v.code}" data-label="${_esc(v.label)}">Save</button></td>
+    <td><button class="btn btn-ghost btn-sm vr-save" data-code="${v.code}" data-label="${esc(v.label)}">Save</button></td>
   </tr>`).join('');
-  const catList = _categories.map(c => `<li>${_esc(c.name)} <span class="text-muted">(${c.applies_to})</span></li>`).join('');
+  const catList = _categories.map(c => `<li>${esc(c.name)} <span class="text-muted">(${c.applies_to})</span></li>`).join('');
   return `
     <div style="margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border-color,#333);">
       <strong style="font-size:13px">Monthly Regular Top-up Amount (฿)</strong>
@@ -2102,14 +2101,14 @@ async function _renderMonthlyReport() {
             const total = txns.reduce((s,t) => s + Number(t.amount), 0);
             return `<div class="card" style="padding:12px 16px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <strong>${_esc(name)}</strong>
+                <strong>${esc(name)}</strong>
                 <span style="font-weight:600;color:var(--color-success,#66bb6a)">${_money(total)}</span>
               </div>
               <table style="font-size:13px;width:100%;border-collapse:collapse;">
                 ${txns.map(t=>`<tr style="border-top:1px solid var(--border-color,#333);">
                   <td style="padding:4px 6px;color:var(--text-secondary)">${_fmt(t.txn_date)}</td>
-                  <td style="padding:4px 6px">${_esc(t.category?.name||'—')}</td>
-                  <td style="padding:4px 6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(t.note||'—')}</td>
+                  <td style="padding:4px 6px">${esc(t.category?.name||'—')}</td>
+                  <td style="padding:4px 6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.note||'—')}</td>
                   <td style="padding:4px 6px;text-align:right;font-weight:500">${_money(t.amount,t.currency)}</td>
                 </tr>`).join('')}
               </table>
@@ -2142,7 +2141,7 @@ function _kvTable(obj) {
   if (entries.length === 0) return `<p class="empty-state">No expenses.</p>`;
   const total = entries.reduce((s,[,v])=>s+v,0);
   return `<div class="table-wrapper"><table class="data-table"><tbody>
-    ${entries.map(([k,v])=>`<tr><td>${_esc(k)}</td><td style="text-align:right">${_money(v)}</td></tr>`).join('')}
+    ${entries.map(([k,v])=>`<tr><td>${esc(k)}</td><td style="text-align:right">${_money(v)}</td></tr>`).join('')}
     <tr style="font-weight:600;border-top:2px solid var(--border-color)"><td>Total</td><td style="text-align:right">${_money(total)}</td></tr>
   </tbody></table></div>`;
 }
@@ -2222,7 +2221,7 @@ async function _renderWeeklyReport() {
     });
 
     const rows = wageRows.map(({ emp: e, hasTs, hrs, sessions, wage }) => `<tr>
-        <td>${_esc(e.full_name)} <span class="text-muted">(${e.employment_type_code==='2'?'PT':'Contract'})</span></td>
+        <td>${esc(e.full_name)} <span class="text-muted">(${e.employment_type_code==='2'?'PT':'Contract'})</span></td>
         <td>${hasTs ? sessions : '—'}</td>
         <td>${hasTs ? (hrs.toFixed(1)+' h') : '<span style="color:var(--warning)">no timesheet</span>'}</td>
         <td style="font-weight:600">${hasTs ? _money(wage) : '—'}</td>
@@ -2240,7 +2239,7 @@ async function _renderWeeklyReport() {
       </div>
 
       ${missing.length ? `<div class="card mb-4" style="border-left:4px solid var(--warning);padding:12px 16px;font-size:13px">
-        ⚠️ ${missing.length} worker(s) have no timesheet entries this week: ${_esc(missing.join(', '))}. Wage figures are incomplete until their timesheets are submitted &amp; approved.</div>` : ''}
+        ⚠️ ${missing.length} worker(s) have no timesheet entries this week: ${esc(missing.join(', '))}. Wage figures are incomplete until their timesheets are submitted &amp; approved.</div>` : ''}
 
       <div class="section-header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         Part-time / Outsource — Week ${wkNum}/${yr}
@@ -2273,18 +2272,18 @@ async function _openPostWagesModal(wageRows, weekTag, txnDate, reload) {
   backdrop.innerHTML = `
     <div class="modal">
       <div class="modal-header">
-        <span>Post Wages — ${_esc(weekTag)}</span>
+        <span>Post Wages — ${esc(weekTag)}</span>
         <button class="btn btn-ghost btn-sm" id="pw-close">✕</button>
       </div>
       <div class="modal-body">
         ${existing.length ? `<div class="card mb-4" style="border-left:4px solid var(--warning);padding:10px 14px;font-size:13px">
-          ⚠️ ${existing.length} wage line(s) for ${_esc(weekTag)} already exist in the ledger
-          (${existing.map(t => _esc(t.employee?.full_name || '—')).join(', ')}). Confirm only if this posting is intentional.</div>` : ''}
+          ⚠️ ${existing.length} wage line(s) for ${esc(weekTag)} already exist in the ledger
+          (${existing.map(t => esc(t.employee?.full_name || '—')).join(', ')}). Confirm only if this posting is intentional.</div>` : ''}
         <p class="text-muted" style="font-size:13px;margin-bottom:12px">Review the computed wages — amounts are editable. Lines post as approved "Engineering Assistant Wage" expenses (project: Hubble Engineering Office), dated ${_fmt(txnDate)}.</p>
         <table class="data-table" style="width:100%">
           <thead><tr><th>Worker</th><th>Sessions</th><th style="width:140px">Amount (฿)</th></tr></thead>
           <tbody>${wageRows.map((r, i) => `<tr>
-            <td>${_esc(r.emp.full_name)}</td>
+            <td>${esc(r.emp.full_name)}</td>
             <td>${r.sessions}</td>
             <td><input type="number" class="form-control pw-amt" data-i="${i}" value="${r.wage}" min="0" step="0.01" style="width:120px"></td>
           </tr>`).join('')}</tbody>

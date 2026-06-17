@@ -235,9 +235,51 @@ export function toISODate(date) {
 // HTML ESCAPING
 // ──────────────────────────────────────────────────────────────
 
-/** Escape a value for safe insertion into HTML text nodes or attribute values. */
-export const esc  = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+/** Escape a value for safe insertion into HTML text nodes or attribute values.
+ *  Escapes & < > " AND ' so the result is safe inside BOTH double- and
+ *  single-quoted attributes (matches the strictest former per-page _esc copies). */
+export const esc  = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 export const attr = esc;
+
+/**
+ * Sanitize an UNTRUSTED HTML string before inserting it via innerHTML.
+ * Defence-in-depth for stored admin-authored document templates: neutralises
+ * script execution and active content while preserving the formatting tags and
+ * inline styles that document templates rely on (headings, tables, <style>, etc.).
+ *
+ * Strips: <script>/<iframe>/<object>/<embed>/<link>/<meta>/<base>/<form> and
+ * form controls; all on* event-handler attributes; javascript: in href/src;
+ * and CSS expression()/javascript: in inline style attributes.
+ *
+ * NOTE: this is NOT a substitute for `esc()` on user-supplied text values —
+ * merge values must still be escaped before substitution. This only hardens the
+ * surrounding template markup itself. Browser-only (uses the DOM parser).
+ */
+export function sanitizeHtml(html) {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = String(html ?? '');
+  const FORBIDDEN = new Set([
+    'SCRIPT','IFRAME','OBJECT','EMBED','LINK','META','BASE','FORM',
+    'INPUT','BUTTON','TEXTAREA','SELECT','NOSCRIPT','FRAME','FRAMESET',
+  ]);
+  tpl.content.querySelectorAll('*').forEach(el => {
+    if (FORBIDDEN.has(el.tagName)) { el.remove(); return; }
+    [...el.attributes].forEach(a => {
+      const name = a.name.toLowerCase();
+      const val  = a.value || '';
+      if (name.startsWith('on')) {
+        el.removeAttribute(a.name);
+      } else if ((name === 'href' || name === 'src' || name === 'xlink:href')
+                 && /^\s*javascript:/i.test(val)) {
+        el.removeAttribute(a.name);
+      } else if (name === 'style'
+                 && /expression\s*\(|javascript:/i.test(val)) {
+        el.removeAttribute(a.name);
+      }
+    });
+  });
+  return tpl.innerHTML;
+}
 
 /**
  * Validate a CSS color value before using it in inline styles.

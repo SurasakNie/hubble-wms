@@ -2,7 +2,7 @@
 
 import { isAdmin, isManager } from '../auth.js';
 import { confirmModal } from '../components/confirmModal.js';
-import { toISODate, todayISO } from '../format.js';
+import { toISODate, todayISO, esc, attr } from '../format.js';
 import { empSelectHtml, wireEmpSelect, empOptionLabel } from '../components/empSelect.js';
 import { supabase }         from '../config.js';
 import { getEmployees }     from '../api/employees.js';
@@ -59,8 +59,6 @@ let _flexSubTab = 'swap';
 
 // ── Helpers ───────────────────────────────────────────────────
 
-const _esc  = s => (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const _attr = s => _esc(s);
 const _fmt  = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
 // ── Weekend handling (leave requests & flex swaps must fall on weekdays) ──
@@ -391,11 +389,11 @@ function _renderPolicy(wrap) {
     const note = _POLICY_NOTES[lt.code];
     return `
       <div style="margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid var(--border-color);">
-        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${_esc(lt.label)}</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${esc(lt.label)}</div>
         <div style="display:flex;flex-direction:column;gap:6px;font-size:14px;">
           ${days ? `<div><span style="color:var(--text-muted);min-width:140px;display:inline-block;">Entitlement</span>${days}</div>` : ''}
-          <div><span style="color:var(--text-muted);min-width:140px;display:inline-block;">Granularity</span>${_esc(gran)}</div>
-          ${note ? `<div style="color:var(--text-secondary);line-height:1.6;margin-top:2px;">${_esc(note)}</div>` : ''}
+          <div><span style="color:var(--text-muted);min-width:140px;display:inline-block;">Granularity</span>${esc(gran)}</div>
+          ${note ? `<div style="color:var(--text-secondary);line-height:1.6;margin-top:2px;">${esc(note)}</div>` : ''}
         </div>
       </div>`;
   }
@@ -713,7 +711,7 @@ function _renderHolidaysCalendar(body) {
       if (hol)     cls += ' mc-hol';
       if (isToday) cls += ' mc-today';
       else if (weekend && !hol) cls += ' mc-wknd';
-      cells += `<div class="${cls}" title="${hol ? _esc(hol) : ''}">${d}</div>`;
+      cells += `<div class="${cls}" title="${hol ? esc(hol) : ''}">${d}</div>`;
     }
     return `<div class="mc-month">
       <div class="mc-mname">${MON_NAMES[m - 1]}</div>
@@ -742,12 +740,12 @@ function _renderHolidaysCalendar(body) {
              </div>`
           : `<table style="width:100%;font-size:12px;border-collapse:collapse;">
                ${groups.map(g => `<tr style="border-bottom:1px solid var(--border-color);"
-                   data-ids="${_attr(g.ids.join(','))}">
+                   data-ids="${attr(g.ids.join(','))}">
                  <td style="padding:5px 0;color:var(--accent-amber,#c9a020);white-space:nowrap;font-weight:600;">
                    ${_fmtRange(g.startDate, g.endDate)}
                  </td>
                  <td style="padding:5px 0 5px 8px;color:var(--text-secondary,var(--text-primary));">
-                   ${_esc(g.name)}
+                   ${esc(g.name)}
                  </td>
                  ${_admin ? `<td style="padding:5px 0;text-align:right;white-space:nowrap;">
                    <button class="row-action-btn hl-edit-holiday" title="Edit">
@@ -805,12 +803,12 @@ function _renderHolidaysList(body, parentWrap) {
              ${_admin ? '<th style="width:80px"></th>' : ''}
            </tr></thead>
            <tbody>
-             ${groups.map(g => `<tr data-ids="${_attr(g.ids.join(','))}">
+             ${groups.map(g => `<tr data-ids="${attr(g.ids.join(','))}">
                <td style="white-space:nowrap;color:var(--accent-amber,#c9a020);font-weight:600;">
                  ${_fmtRange(g.startDate, g.endDate)}
                </td>
-               <td>${_esc(g.name)}</td>
-               <td>${g.department_code ? `<span class="badge">${_esc(g.department?.label || g.department_code)}</span>` : 'All departments'}</td>
+               <td>${esc(g.name)}</td>
+               <td>${g.department_code ? `<span class="badge">${esc(g.department?.label || g.department_code)}</span>` : 'All departments'}</td>
                ${_admin ? `<td class="table-actions">
                  <button class="row-action-btn hl-edit-holiday" title="Edit">
                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -864,7 +862,7 @@ function _openHolidayModal(group) {
   const deptOpts = _employees.length
     ? [...new Map(_employees.filter(e => e.department).map(e => [e.department.code, e.department])).values()]
         .sort((a, b) => a.code.localeCompare(b.code))
-        .map(d => `<option value="${_attr(d.code)}" ${initDept === d.code ? 'selected' : ''}>${_esc(d.label || d.code)}</option>`)
+        .map(d => `<option value="${attr(d.code)}" ${initDept === d.code ? 'selected' : ''}>${esc(d.label || d.code)}</option>`)
         .join('')
     : '';
 
@@ -880,16 +878,16 @@ function _openHolidayModal(group) {
       <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <label class="form-label">Start date
-            <input class="form-input" type="date" id="hl-hm-start" value="${_attr(initStart)}">
+            <input class="form-input" type="date" id="hl-hm-start" value="${attr(initStart)}">
           </label>
           <label class="form-label">End date <span style="font-size:11px;color:var(--text-muted);">(= Start for one day)</span>
-            <input class="form-input" type="date" id="hl-hm-end" value="${_attr(initEnd)}">
+            <input class="form-input" type="date" id="hl-hm-end" value="${attr(initEnd)}">
           </label>
         </div>
         <label class="form-label">Holiday name
           <input class="form-input" type="text" id="hl-hm-name"
             placeholder="e.g. Songkran Festival"
-            value="${_attr(initName)}">
+            value="${attr(initName)}">
         </label>
         <label class="form-label">Department scope
           <select class="form-input" id="hl-hm-dept">
@@ -976,7 +974,7 @@ function _renderMyLeave(wrap) {
 
       <label class="form-label">Leave Type
         <select class="form-input" id="hl-ml-type">
-          ${_leaveTypes.filter(t => t.code !== 'flex_holiday').map(t => `<option value="${_attr(t.code)}">${_esc(t.label)}</option>`).join('')}
+          ${_leaveTypes.filter(t => t.code !== 'flex_holiday').map(t => `<option value="${attr(t.code)}">${esc(t.label)}</option>`).join('')}
         </select>
       </label>
 
@@ -1034,7 +1032,7 @@ function _renderMyLeave(wrap) {
                </tr></thead>
                <tbody>
                  ${visible.map(r => `<tr>
-                   <td>${_esc(r.leave_type?.label || r.leave_type_code)}</td>
+                   <td>${esc(r.leave_type?.label || r.leave_type_code)}</td>
                    <td>${_fmt(r.start_date)}</td>
                    <td>${_fmt(r.end_date)}</td>
                    <td>${r.duration_hours ? r.duration_hours + 'h' : r.granularity.replace('_',' ')}</td>
@@ -1042,11 +1040,11 @@ function _renderMyLeave(wrap) {
                      <span class="${STATUS_BADGE[r.status] || 'badge'}">${r.status}</span>
                      ${r.is_cross_type_deduction ? `<span class="badge badge-pending" title="Cross-pool">~pool</span>` : ''}
                    </td>
-                   <td style="font-size:12px;color:var(--text-muted);">${r.status === 'rejected' ? _esc(r.rejection_reason || '—') : ''}</td>
+                   <td style="font-size:12px;color:var(--text-muted);">${r.status === 'rejected' ? esc(r.rejection_reason || '—') : ''}</td>
                    <td>${_fmt(r.created_at?.slice(0,10))}</td>
                    <td>
                      ${r.status === 'pending'
-                       ? `<button class="btn btn-sm hl-cancel-req" data-id="${_attr(r.id)}">Cancel</button>`
+                       ? `<button class="btn btn-sm hl-cancel-req" data-id="${attr(r.id)}">Cancel</button>`
                        : ''}
                    </td>
                  </tr>`).join('')}
@@ -1180,13 +1178,13 @@ function _renderFlex(wrap) {
                <tbody>
                  ${mySwaps.map(s => `<tr>
                    <td><span class="badge">${s.swap_type === 'wfh' ? 'WFH' : 'Flex Swap'}</span></td>
-                   <td>${s.waived_holiday ? `${_fmt(s.waived_holiday.date)} — ${_esc(s.waived_holiday.name)}` : '—'}</td>
+                   <td>${s.waived_holiday ? `${_fmt(s.waived_holiday.date)} — ${esc(s.waived_holiday.name)}` : '—'}</td>
                    <td>${s.substitute_date ? _fmt(s.substitute_date) : (s.valid_from ? _fmt(s.valid_from) : '—')}</td>
                    <td>${s.valid_until ? _fmt(s.valid_until) : '—'}</td>
                    <td><span class="${STATUS_BADGE[s.status] || 'badge'}">${s.status}</span></td>
-                   <td style="font-size:12px;color:var(--text-muted);">${s.status === 'rejected' ? _esc(s.manager_notes || '—') : ''}</td>
+                   <td style="font-size:12px;color:var(--text-muted);">${s.status === 'rejected' ? esc(s.manager_notes || '—') : ''}</td>
                    <td>${s.status === 'pending'
-                     ? `<button class="btn btn-sm hl-cancel-flex" data-id="${_attr(s.id)}">Cancel</button>`
+                     ? `<button class="btn btn-sm hl-cancel-flex" data-id="${attr(s.id)}">Cancel</button>`
                      : ''}
                    </td>
                  </tr>`).join('')}
@@ -1240,7 +1238,7 @@ function _renderFlexSwapForm(body, wrap) {
       <label class="form-label">Holiday to waive
         <select class="form-input" id="hl-flex-holiday">
           <option value="">Select year: use ← → on Holidays tab to load ${_year}</option>
-          ${_holidays.map(h => `<option value="${_attr(h.id)}">${_fmt(h.date)} — ${_esc(h.name)}</option>`).join('')}
+          ${_holidays.map(h => `<option value="${attr(h.id)}">${_fmt(h.date)} — ${esc(h.name)}</option>`).join('')}
         </select>
       </label>
 
@@ -1359,8 +1357,8 @@ function _renderTeamLeave(wrap) {
                <thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Status</th><th>Submitted</th></tr></thead>
                <tbody>
                  ${all.map(r => `<tr>
-                   <td>${_esc(r.employee?.full_name || '—')}</td>
-                   <td>${_esc(r.leave_type?.label || r.leave_type_code)}</td>
+                   <td>${esc(r.employee?.full_name || '—')}</td>
+                   <td>${esc(r.leave_type?.label || r.leave_type_code)}</td>
                    <td>${_fmt(r.start_date)}</td>
                    <td>${_fmt(r.end_date)}</td>
                    <td><span class="${STATUS_BADGE[r.status] || 'badge'}">${r.status}</span></td>
@@ -1371,11 +1369,11 @@ function _renderTeamLeave(wrap) {
            </div>`;
     })() : `
       <div style="max-width:540px;display:flex;flex-direction:column;gap:18px;margin-bottom:32px;">
-        <div class="form-label" style="font-size:15px;font-weight:600;">Submit Leave Request — ${_esc(selEmp?.full_name || '')}</div>
+        <div class="form-label" style="font-size:15px;font-weight:600;">Submit Leave Request — ${esc(selEmp?.full_name || '')}</div>
 
         <label class="form-label">Leave Type
           <select class="form-input" id="hl-tl-type">
-            ${_leaveTypes.filter(t => t.code !== 'flex_holiday').map(t => `<option value="${_attr(t.code)}">${_esc(t.label)}</option>`).join('')}
+            ${_leaveTypes.filter(t => t.code !== 'flex_holiday').map(t => `<option value="${attr(t.code)}">${esc(t.label)}</option>`).join('')}
           </select>
         </label>
 
@@ -1419,7 +1417,7 @@ function _renderTeamLeave(wrap) {
             const available = b.allocated_days + b.carried_over_days + b.manual_adjustment_days - b.used_days;
             return `<div style="background:var(--surface-2);border:1px solid var(--border-color);
               border-radius:8px;padding:14px 18px;min-width:160px;flex:1;">
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${_esc(b.leave_type?.label || b.leave_type_code)}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${esc(b.leave_type?.label || b.leave_type_code)}</div>
               <div style="font-size:24px;font-weight:700;color:var(--text-primary);">${available.toFixed(1)}</div>
               <div style="font-size:11px;color:var(--text-muted);">of ${b.allocated_days} days allocated</div>
             </div>`;
@@ -1429,7 +1427,7 @@ function _renderTeamLeave(wrap) {
 
       <div>
         <div style="font-size:13px;font-weight:600;color:var(--text-muted);letter-spacing:.06em;margin-bottom:12px;">
-          LEAVE HISTORY — ${_esc(selEmp?.full_name || '')}
+          LEAVE HISTORY — ${esc(selEmp?.full_name || '')}
         </div>
         ${empReqs.length === 0
           ? `<div class="empty-state"><div class="empty-state-title">No leave requests</div></div>`
@@ -1440,7 +1438,7 @@ function _renderTeamLeave(wrap) {
                  </tr></thead>
                  <tbody>
                    ${empReqs.map(r => `<tr>
-                     <td>${_esc(r.leave_type?.label || r.leave_type_code)}</td>
+                     <td>${esc(r.leave_type?.label || r.leave_type_code)}</td>
                      <td>${_fmt(r.start_date)}</td>
                      <td>${_fmt(r.end_date)}</td>
                      <td>${r.duration_hours ? r.duration_hours + 'h' : r.granularity.replace('_',' ')}</td>
@@ -1546,10 +1544,10 @@ function _renderTeamFlex(wrap) {
                <thead><tr><th>Employee</th><th>Waived Holiday</th><th>Substitute Day</th><th>Type</th><th>Status</th><th>Submitted</th></tr></thead>
                <tbody>
                  ${all.map(s => `<tr>
-                   <td>${_esc(s.employee?.full_name || '—')}</td>
-                   <td>${s.waived_holiday ? `${_fmt(s.waived_holiday.date)} — ${_esc(s.waived_holiday.name)}` : '—'}</td>
+                   <td>${esc(s.employee?.full_name || '—')}</td>
+                   <td>${s.waived_holiday ? `${_fmt(s.waived_holiday.date)} — ${esc(s.waived_holiday.name)}` : '—'}</td>
                    <td>${_fmt(s.substitute_date)}</td>
-                   <td>${_esc(s.swap_type || '—')}</td>
+                   <td>${esc(s.swap_type || '—')}</td>
                    <td><span class="${STATUS_BADGE[s.status] || 'badge'}">${s.status}</span></td>
                    <td>${_fmt(s.created_at?.slice(0,10))}</td>
                  </tr>`).join('')}
@@ -1558,7 +1556,7 @@ function _renderTeamFlex(wrap) {
            </div>`;
     })() : `
       <div style="max-width:540px;display:flex;flex-direction:column;gap:18px;margin-bottom:32px;">
-        <div class="form-label" style="font-size:15px;font-weight:600;">Submit Flex Holiday Swap — ${_esc(selEmp?.full_name || '')}</div>
+        <div class="form-label" style="font-size:15px;font-weight:600;">Submit Flex Holiday Swap — ${esc(selEmp?.full_name || '')}</div>
 
         <label class="form-label">Swap type
           <select class="form-input" id="hl-tf-type">
@@ -1570,7 +1568,7 @@ function _renderTeamFlex(wrap) {
         <label class="form-label">Holiday to waive
           <select class="form-input" id="hl-tf-holiday">
             <option value="">Select year: use ← → on Holidays tab to load ${_year}</option>
-            ${_holidays.map(h => `<option value="${_attr(h.id)}">${_fmt(h.date)} — ${_esc(h.name)}</option>`).join('')}
+            ${_holidays.map(h => `<option value="${attr(h.id)}">${_fmt(h.date)} — ${esc(h.name)}</option>`).join('')}
           </select>
         </label>
 
@@ -1590,7 +1588,7 @@ function _renderTeamFlex(wrap) {
 
       <div>
         <div style="font-size:13px;font-weight:600;color:var(--text-muted);letter-spacing:.06em;margin-bottom:12px;">
-          SWAP HISTORY — ${_esc(selEmp?.full_name || '')}
+          SWAP HISTORY — ${esc(selEmp?.full_name || '')}
         </div>
         ${empSwaps.length === 0
           ? `<div class="empty-state"><div class="empty-state-title">No flex swaps</div></div>`
@@ -1602,7 +1600,7 @@ function _renderTeamFlex(wrap) {
                  <tbody>
                    ${empSwaps.map(s => `<tr>
                      <td><span class="badge">${s.swap_type === 'wfh' ? 'WFH' : 'Move'}</span></td>
-                     <td>${s.waived_holiday ? `${_fmt(s.waived_holiday.date)} — ${_esc(s.waived_holiday.name)}` : '—'}</td>
+                     <td>${s.waived_holiday ? `${_fmt(s.waived_holiday.date)} — ${esc(s.waived_holiday.name)}` : '—'}</td>
                      <td>${s.substitute_date ? _fmt(s.substitute_date) : '—'}</td>
                      <td>${s.valid_until ? _fmt(s.valid_until) : '—'}</td>
                      <td><span class="${STATUS_BADGE[s.status] || 'badge'}">${s.status}</span></td>
@@ -1678,7 +1676,7 @@ function _openLeaveEditModal(req, onSave) {
   document.getElementById('hl-edit-modal')?.remove();
 
   const typeOpts = _leaveTypes.map(t =>
-    `<option value="${_attr(t.code)}" ${t.code === req.leave_type_code ? 'selected' : ''}>${_esc(t.label)}</option>`
+    `<option value="${attr(t.code)}" ${t.code === req.leave_type_code ? 'selected' : ''}>${esc(t.label)}</option>`
   ).join('');
 
   const modal = document.createElement('div');
@@ -1687,7 +1685,7 @@ function _openLeaveEditModal(req, onSave) {
   modal.innerHTML = `
     <div class="modal modal-lg" role="dialog" aria-modal="true">
       <div class="modal-header">
-        <div class="modal-title">Edit Leave Request — ${_esc(req.employee?.full_name || '')}</div>
+        <div class="modal-title">Edit Leave Request — ${esc(req.employee?.full_name || '')}</div>
         <button class="modal-close" id="hle-close" aria-label="Close">✕</button>
       </div>
       <div class="modal-body">
@@ -1696,14 +1694,14 @@ function _openLeaveEditModal(req, onSave) {
         </label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
           <label class="form-label">Start Date <span class="required">*</span>
-            <input class="form-input" type="date" id="hle-start" value="${_attr(req.start_date)}" style="color-scheme:dark">
+            <input class="form-input" type="date" id="hle-start" value="${attr(req.start_date)}" style="color-scheme:dark">
           </label>
           <label class="form-label">End Date <span class="required">*</span>
-            <input class="form-input" type="date" id="hle-end" value="${_attr(req.end_date)}" style="color-scheme:dark">
+            <input class="form-input" type="date" id="hle-end" value="${attr(req.end_date)}" style="color-scheme:dark">
           </label>
         </div>
         <label class="form-label" style="display:block;">Notes
-          <textarea class="form-input" id="hle-notes" rows="3" style="resize:vertical;">${_esc(req.notes || req.manager_notes || '')}</textarea>
+          <textarea class="form-input" id="hle-notes" rows="3" style="resize:vertical;">${esc(req.notes || req.manager_notes || '')}</textarea>
         </label>
       </div>
       <div class="modal-footer">
@@ -1819,18 +1817,18 @@ function _renderApprovals(wrap) {
                      <th>Duration</th><th>Submitted</th><th>~pool</th><th style="width:240px"></th>
                    </tr></thead>
                    <tbody>
-                     ${pending.map(r => `<tr data-id="${_attr(r.id)}">
-                       <td>${_esc(r.employee?.full_name || '—')}</td>
-                       <td>${_esc(r.leave_type?.label || r.leave_type_code)}</td>
+                     ${pending.map(r => `<tr data-id="${attr(r.id)}">
+                       <td>${esc(r.employee?.full_name || '—')}</td>
+                       <td>${esc(r.leave_type?.label || r.leave_type_code)}</td>
                        <td>${_fmt(r.start_date)}</td>
                        <td>${_fmt(r.end_date)}</td>
                        <td>${r.duration_hours ? r.duration_hours + 'h' : r.granularity.replace('_',' ')}</td>
                        <td>${_fmt(r.created_at?.slice(0,10))}</td>
                        <td>${r.is_cross_type_deduction ? '<span class="badge badge-pending">Yes</span>' : '—'}</td>
                        <td class="table-actions">
-                         ${_admin ? `<button class="btn btn-sm btn-ghost hl-edit-req" data-id="${_attr(r.id)}">Edit</button>` : ''}
-                         <button class="btn btn-sm btn-primary hl-approve-req" data-id="${_attr(r.id)}">Approve</button>
-                         <button class="btn btn-sm btn-danger hl-reject-req" data-id="${_attr(r.id)}">Reject</button>
+                         ${_admin ? `<button class="btn btn-sm btn-ghost hl-edit-req" data-id="${attr(r.id)}">Edit</button>` : ''}
+                         <button class="btn btn-sm btn-primary hl-approve-req" data-id="${attr(r.id)}">Approve</button>
+                         <button class="btn btn-sm btn-danger hl-reject-req" data-id="${attr(r.id)}">Reject</button>
                        </td>
                      </tr>`).join('')}
                    </tbody>
@@ -1851,14 +1849,14 @@ function _renderApprovals(wrap) {
                      <th>Valid Until</th><th style="width:160px"></th>
                    </tr></thead>
                    <tbody>
-                     ${pendFlex.map(s => `<tr data-id="${_attr(s.id)}">
-                       <td>${_esc(s.employee?.full_name || '—')}</td>
-                       <td>${s.waived_holiday ? `${_fmt(s.waived_holiday.date)} — ${_esc(s.waived_holiday.name)}` : '—'}</td>
+                     ${pendFlex.map(s => `<tr data-id="${attr(s.id)}">
+                       <td>${esc(s.employee?.full_name || '—')}</td>
+                       <td>${s.waived_holiday ? `${_fmt(s.waived_holiday.date)} — ${esc(s.waived_holiday.name)}` : '—'}</td>
                        <td>${_fmt(s.substitute_date)}</td>
                        <td>${_fmt(s.valid_until)}</td>
                        <td class="table-actions">
-                         <button class="btn btn-sm btn-primary hl-approve-flex" data-id="${_attr(s.id)}">Approve</button>
-                         <button class="btn btn-sm btn-danger hl-reject-flex" data-id="${_attr(s.id)}">Reject</button>
+                         <button class="btn btn-sm btn-primary hl-approve-flex" data-id="${attr(s.id)}">Approve</button>
+                         <button class="btn btn-sm btn-danger hl-reject-flex" data-id="${attr(s.id)}">Reject</button>
                        </td>
                      </tr>`).join('')}
                    </tbody>
@@ -1890,7 +1888,7 @@ function _renderApprovals(wrap) {
       btn.addEventListener('click', () => {
         const req = _requests.find(r => r.id === btn.dataset.id);
         const contextLine = req
-          ? [req.employee?.full_name, req.leave_type?.label || req.leave_type_code, req.start_date].filter(Boolean).map(_esc).join(' · ')
+          ? [req.employee?.full_name, req.leave_type?.label || req.leave_type_code, req.start_date].filter(Boolean).map(esc).join(' · ')
           : '';
         _openHlRejectModal({
           contextLine,
@@ -1922,7 +1920,7 @@ function _renderApprovals(wrap) {
       btn.addEventListener('click', () => {
         const swap = _flexSwaps.find(s => s.id === btn.dataset.id);
         const contextLine = swap
-          ? [swap.employee?.full_name, swap.waived_holiday?.name, swap.substitute_date].filter(Boolean).map(_esc).join(' · ')
+          ? [swap.employee?.full_name, swap.waived_holiday?.name, swap.substitute_date].filter(Boolean).map(esc).join(' · ')
           : '';
         _openHlRejectModal({
           contextLine,
@@ -1954,9 +1952,9 @@ function _renderApprovals(wrap) {
       <div style="display:flex;flex-direction:column;gap:24px;">
         <div class="filter-bar" style="flex-wrap:wrap;gap:8px;align-items:center;">
           <label style="font-size:12px;color:var(--text-muted);">From</label>
-          <input class="form-input" type="date" id="hl-hist-from" value="${_attr(_historyFrom)}" style="width:160px;" placeholder="YYYY-MM-DD (optional)">
+          <input class="form-input" type="date" id="hl-hist-from" value="${attr(_historyFrom)}" style="width:160px;" placeholder="YYYY-MM-DD (optional)">
           <label style="font-size:12px;color:var(--text-muted);">To</label>
-          <input class="form-input" type="date" id="hl-hist-to"   value="${_attr(_historyTo)}"   style="width:160px;" placeholder="YYYY-MM-DD (optional)">
+          <input class="form-input" type="date" id="hl-hist-to"   value="${attr(_historyTo)}"   style="width:160px;" placeholder="YYYY-MM-DD (optional)">
           <button class="btn btn-sm btn-primary" id="hl-hist-apply">Apply</button>
         </div>
 
@@ -1973,15 +1971,15 @@ function _renderApprovals(wrap) {
                    </tr></thead>
                    <tbody>
                      ${settled.map(r => `<tr>
-                       <td>${_esc(r.employee?.full_name || '—')}</td>
-                       <td>${_esc(r.leave_type?.label || r.leave_type_code)}</td>
+                       <td>${esc(r.employee?.full_name || '—')}</td>
+                       <td>${esc(r.leave_type?.label || r.leave_type_code)}</td>
                        <td>${_fmt(r.start_date)}</td>
                        <td>${_fmt(r.end_date)}</td>
                        <td><span class="${STATUS_BADGE[r.status] || 'badge'}">${r.status}</span></td>
-                       <td style="font-size:12px;color:var(--text-muted);">${_esc(r.rejection_reason || r.manager_notes || '—')}</td>
+                       <td style="font-size:12px;color:var(--text-muted);">${esc(r.rejection_reason || r.manager_notes || '—')}</td>
                        <td class="table-actions">
-                         ${_admin ? `<button class="btn btn-sm btn-ghost hl-edit-hist-req" data-id="${_attr(r.id)}">Edit</button>` : ''}
-                         <button class="btn btn-sm btn-ghost hl-override-req" data-id="${_attr(r.id)}">Override</button>
+                         ${_admin ? `<button class="btn btn-sm btn-ghost hl-edit-hist-req" data-id="${attr(r.id)}">Edit</button>` : ''}
+                         <button class="btn btn-sm btn-ghost hl-override-req" data-id="${attr(r.id)}">Override</button>
                        </td>
                      </tr>`).join('')}
                    </tbody>
@@ -2003,12 +2001,12 @@ function _renderApprovals(wrap) {
                    </tr></thead>
                    <tbody>
                      ${settledFlex.map(s => `<tr>
-                       <td>${_esc(s.employee?.full_name || '—')}</td>
-                       <td>${s.waived_holiday ? `${_fmt(s.waived_holiday.date)} — ${_esc(s.waived_holiday.name)}` : '—'}</td>
+                       <td>${esc(s.employee?.full_name || '—')}</td>
+                       <td>${s.waived_holiday ? `${_fmt(s.waived_holiday.date)} — ${esc(s.waived_holiday.name)}` : '—'}</td>
                        <td>${_fmt(s.substitute_date)}</td>
                        <td><span class="${STATUS_BADGE[s.status] || 'badge'}">${s.status}</span></td>
                        <td class="table-actions">
-                         <button class="btn btn-sm btn-ghost hl-override-flex" data-id="${_attr(s.id)}">Override</button>
+                         <button class="btn btn-sm btn-ghost hl-override-flex" data-id="${attr(s.id)}">Override</button>
                        </td>
                      </tr>`).join('')}
                    </tbody>
@@ -2052,9 +2050,9 @@ function _renderApprovals(wrap) {
       <div style="display:flex;flex-direction:column;gap:24px;">
         <div class="filter-bar" style="flex-wrap:wrap;gap:8px;align-items:center;">
           <label style="font-size:12px;color:var(--text-muted);">From</label>
-          <input class="form-input" type="date" id="hl-sch-from" value="${_attr(_scheduleFrom)}" style="width:140px;">
+          <input class="form-input" type="date" id="hl-sch-from" value="${attr(_scheduleFrom)}" style="width:140px;">
           <label style="font-size:12px;color:var(--text-muted);">To</label>
-          <input class="form-input" type="date" id="hl-sch-to"   value="${_attr(_scheduleTo)}"   style="width:140px;">
+          <input class="form-input" type="date" id="hl-sch-to"   value="${attr(_scheduleTo)}"   style="width:140px;">
           <button class="btn btn-sm btn-primary" id="hl-sch-apply">Apply</button>
           <span style="font-size:12px;color:var(--text-muted);margin-left:8px;">Approved leaves only</span>
         </div>
@@ -2073,8 +2071,8 @@ function _renderApprovals(wrap) {
                    </tr></thead>
                    <tbody>
                      ${leaves.map(r => `<tr>
-                       <td style="font-weight:500">${_esc(r.employee?.full_name || '—')}</td>
-                       <td>${_esc(r.leave_type?.label || r.leave_type_code)}</td>
+                       <td style="font-weight:500">${esc(r.employee?.full_name || '—')}</td>
+                       <td>${esc(r.leave_type?.label || r.leave_type_code)}</td>
                        <td>${_fmt(r.start_date)}</td>
                        <td>${_fmt(r.end_date)}</td>
                        <td>${r.duration_hours ? r.duration_hours + 'h' : r.granularity.replace('_',' ')}</td>
@@ -2097,9 +2095,9 @@ function _renderApprovals(wrap) {
               </tr></thead>
               <tbody>
                 ${flexLeaves.map(s => `<tr>
-                  <td style="font-weight:500">${_esc(s.employee?.full_name || '—')}</td>
+                  <td style="font-weight:500">${esc(s.employee?.full_name || '—')}</td>
                   <td>${_fmt(s.substitute_date)}</td>
-                  <td>${s.waived_holiday ? _esc(s.waived_holiday.name) : '—'}</td>
+                  <td>${s.waived_holiday ? esc(s.waived_holiday.name) : '—'}</td>
                 </tr>`).join('')}
               </tbody>
             </table>
@@ -2138,7 +2136,7 @@ function _balCards(rows) {
       return `<div style="background:var(--surface-2,var(--bg-card));border:1px solid var(--border-color,var(--border));
           border-radius:8px;padding:16px 20px;min-width:160px;flex:1;display:flex;flex-direction:column;gap:6px;">
         <div style="font-size:12px;color:var(--text-muted);font-weight:500;letter-spacing:.04em;">
-          ${_esc(b.leave_type?.label || lt?.label || b.leave_type_code)}
+          ${esc(b.leave_type?.label || lt?.label || b.leave_type_code)}
         </div>
         <div style="font-size:28px;font-weight:700;line-height:1;${low ? 'color:var(--color-danger,#e53e3e)' : ''}">
           ${avail.toFixed(1)}
@@ -2258,7 +2256,7 @@ function _renderTeamBalance(wrap) {
            <div class="empty-state-title">Select an employee above to view their leave balance</div>
          </div>`
       : `<div style="font-size:15px;font-weight:600;margin-bottom:16px;">
-           ${_esc(selEmp?.employee_id || '')} — ${_esc(selEmp?.full_name || '')}
+           ${esc(selEmp?.employee_id || '')} — ${esc(selEmp?.full_name || '')}
          </div>
          ${selBals.length === 0
            ? `<div class="empty-state">

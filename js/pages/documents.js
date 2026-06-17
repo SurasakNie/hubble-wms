@@ -3,7 +3,7 @@
 import { isAdmin, isManager } from '../auth.js';
 import { supabase } from '../config.js';
 import { getEmployees } from '../api/employees.js';
-import { esc, attr, formatDate, todayISO } from '../format.js';
+import { esc, attr, formatDate, todayISO, sanitizeHtml } from '../format.js';
 import { empSelectHtml, wireEmpSelect } from '../components/empSelect.js';
 import {
   DOCUMENT_TYPE_LABELS, REQUIRED_DOCUMENT_FIELD_LABELS, EMPLOYEE_REQUESTABLE_TYPES,
@@ -785,7 +785,9 @@ function _samplePreview(html) {
     'custom.new_job_title': 'Senior Mechanical Engineer',
     'custom.effective_date': '01/07/2026',
   };
-  return String(html || '').replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, key) => esc(sample[key] ?? `{{${key}}}`));
+  const merged = String(html || '').replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (_, key) => esc(sample[key] ?? `{{${key}}}`));
+  // Sanitize: the edit-modal preview renders raw admin-typed template HTML live.
+  return sanitizeHtml(merged);
 }
 
 function _requiredFieldWarningHtml(template, employee) {

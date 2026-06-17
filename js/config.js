@@ -10,7 +10,10 @@
 //      Add: http://localhost:PORT/app.html  (for local dev)
 //           https://YOUR_GITHUB_PAGES_URL/app.html  (for production)
 
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+// Pinned to an exact version (not the floating @2 tag) so a future upstream
+// minor/patch can't silently change behaviour in production. Bump deliberately
+// after testing against the new release. Latest @2 as of this pin: 2.108.2.
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.108.2/+esm';
 
 export const SUPABASE_URL      = 'https://sjkggguedgtynktymzes.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_ZO6nGx_2VNMO9dK_fN72Cg_LlprwmWQ';

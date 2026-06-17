@@ -1,7 +1,7 @@
 // js/pages/requests.js — Notifications: own leave requests for all users, + admin request queues
 
 import { isAdmin } from '../auth.js';
-import { confirmModal } from '../components/confirmModal.js';
+import { confirmModal, promptModal } from '../components/confirmModal.js';
 import { supabase } from '../config.js';
 import {
   getPendingJobTitleChangeRequests,
@@ -10,9 +10,8 @@ import {
   cancelJobTitleChangeRequest,
 } from '../api/jobTitleRequests.js';
 import { cancelNameChangeRequest, cancelDeletionRequest, reviewNameChangeRequest } from '../api/users.js';
+import { esc, attr } from '../format.js';
 
-const _esc  = s => (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const _attr = s => _esc(s);
 const _fmt  = d => d ? new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }) : '—';
 
 const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
@@ -32,13 +31,13 @@ function _notificationCards(items, typeLabel, statusBadgeFn) {
   if (!visible.length) return '';
   return visible.map(r => {
     const badgeCls = r.status === 'approved' ? 'badge badge-approved' : 'badge badge-rejected';
-    const detail   = r.status === 'rejected' ? (_esc(r.rejection_reason || r.manager_notes || r.review_note || '—')) : '';
-    return `<div class="notif-card" data-notif-id="${_attr(r.id)}"
+    const detail   = r.status === 'rejected' ? (esc(r.rejection_reason || r.manager_notes || r.review_note || '—')) : '';
+    return `<div class="notif-card" data-notif-id="${attr(r.id)}"
         style="background:var(--surface-2);border:1px solid var(--border-color);border-radius:8px;
                padding:12px 14px;display:flex;flex-direction:column;gap:4px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span><strong>${_esc(typeLabel)}</strong> — <span class="${badgeCls}">${r.status}</span></span>
-        <button class="notif-dismiss" data-nid="${_attr(r.id)}"
+        <span><strong>${esc(typeLabel)}</strong> — <span class="${badgeCls}">${r.status}</span></span>
+        <button class="notif-dismiss" data-nid="${attr(r.id)}"
           style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;align-self:flex-start;"
           title="Dismiss">✕</button>
       </div>
@@ -233,7 +232,7 @@ async function _load() {
     document.getElementById('content').innerHTML = `
       <div class="empty-state">
         <div class="empty-state-title">Failed to load</div>
-        <div class="empty-state-subtitle">${_esc(err.message)}</div>
+        <div class="empty-state-subtitle">${esc(err.message)}</div>
       </div>`;
   }
 }
@@ -255,13 +254,13 @@ function _leaveTable(rows) {
       <tbody>
         ${rows.map(r => `<tr>
           <td style="white-space:nowrap;">${_fmt(r.created_at)}</td>
-          <td>${_esc(r.employee?.full_name || '—')}</td>
-          <td>${_esc(r.leave_type?.label || r.leave_type_code || '—')}</td>
+          <td>${esc(r.employee?.full_name || '—')}</td>
+          <td>${esc(r.leave_type?.label || r.leave_type_code || '—')}</td>
           <td style="white-space:nowrap;">${_fmt(r.start_date)}</td>
           <td style="white-space:nowrap;">${_fmt(r.end_date)}</td>
           <td>${r.duration_hours ? r.duration_hours + 'h' : (r.granularity || '').replace('_', ' ')}</td>
           <td><span class="${_leaveStatusBadge(r.status)}">${r.status}</span></td>
-          <td style="font-size:12px;color:var(--text-muted);">${r.status === 'rejected' ? _esc(r.rejection_reason || '—') : ''}</td>
+          <td style="font-size:12px;color:var(--text-muted);">${r.status === 'rejected' ? esc(r.rejection_reason || '—') : ''}</td>
         </tr>`).join('')}
       </tbody>
     </table>
@@ -286,10 +285,10 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
             .map(r => `
               <div style="background:var(--surface-2);border:1px solid var(--border-color);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <span class="badge badge-pending">Pending</span>
-                <span style="font-weight:500">${_esc(r._label)}</span>
-                <span class="text-muted" style="font-size:13px;">→ ${_esc(r._detail)}</span>
+                <span style="font-weight:500">${esc(r._label)}</span>
+                <span class="text-muted" style="font-size:13px;">→ ${esc(r._detail)}</span>
                 <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${_fmt(r.created_at)}</span>
-                <button class="btn btn-sm btn-ghost rq-cancel-pending" data-type="${_attr(r._type)}" data-id="${_attr(r.id)}">Cancel</button>
+                <button class="btn btn-sm btn-ghost rq-cancel-pending" data-type="${attr(r._type)}" data-id="${attr(r.id)}">Cancel</button>
               </div>`).join('')}
           </div>
         </div>` : ''}
@@ -333,10 +332,10 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
           .map(r => `
             <div style="background:var(--surface-2);border:1px solid var(--border-color);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
               <span class="badge badge-pending">Pending</span>
-              <span style="font-weight:500">${_esc(r._label)}</span>
-              <span class="text-muted" style="font-size:13px;">→ ${_esc(r._detail)}</span>
+              <span style="font-weight:500">${esc(r._label)}</span>
+              <span class="text-muted" style="font-size:13px;">→ ${esc(r._detail)}</span>
               <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${_fmt(r.created_at)}</span>
-              <button class="btn btn-sm btn-ghost rq-cancel-pending" data-type="${_attr(r._type)}" data-id="${_attr(r.id)}">Cancel</button>
+              <button class="btn btn-sm btn-ghost rq-cancel-pending" data-type="${attr(r._type)}" data-id="${attr(r.id)}">Cancel</button>
             </div>`).join('')}
         </div>
       </div>` : ''}
@@ -359,20 +358,20 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
                   const entityName = entityMap[r.entity_id] || r.entity_id;
                   return `<tr>
                     <td style="white-space:nowrap;">${_fmt(r.created_at)}</td>
-                    <td>${_esc(r.requester?.name || r.requester?.email || '—')}</td>
+                    <td>${esc(r.requester?.name || r.requester?.email || '—')}</td>
                     <td>
-                      <span style="font-size:11px;text-transform:uppercase;color:var(--text-muted);">${_esc(r.entity_type)}</span><br>
-                      <strong>${_esc(entityName)}</strong>
+                      <span style="font-size:11px;text-transform:uppercase;color:var(--text-muted);">${esc(r.entity_type)}</span><br>
+                      <strong>${esc(entityName)}</strong>
                     </td>
-                    <td style="max-width:200px;word-break:break-word;">${_esc(r.reason || '—')}</td>
+                    <td style="max-width:200px;word-break:break-word;">${esc(r.reason || '—')}</td>
                     <td style="white-space:nowrap;">
                       <button class="btn btn-sm" style="color:#e53935;border-color:#e53935;"
-                        data-del-approve="${_attr(r.id)}"
-                        data-entity-type="${_attr(r.entity_type)}"
-                        data-entity-id="${_attr(r.entity_id)}"
-                        data-entity-name="${_attr(entityName)}">Approve &amp; Delete</button>
-                      <button class="btn btn-sm" data-del-reject="${_attr(r.id)}" style="margin-left:6px;">Reject</button>
-                      <button class="btn btn-sm btn-ghost del-cancel-btn" data-id="${_attr(r.id)}" style="margin-left:6px;">Cancel</button>
+                        data-del-approve="${attr(r.id)}"
+                        data-entity-type="${attr(r.entity_type)}"
+                        data-entity-id="${attr(r.entity_id)}"
+                        data-entity-name="${attr(entityName)}">Approve &amp; Delete</button>
+                      <button class="btn btn-sm" data-del-reject="${attr(r.id)}" style="margin-left:6px;">Reject</button>
+                      <button class="btn btn-sm btn-ghost del-cancel-btn" data-id="${attr(r.id)}" style="margin-left:6px;">Cancel</button>
                     </td>
                   </tr>`;
                 }).join('')}
@@ -393,15 +392,15 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
               <tbody>
                 ${ncrReqs.map(r => `<tr>
                   <td style="white-space:nowrap;">${_fmt(r.created_at)}</td>
-                  <td>${_esc(r.requester?.name || r.requester?.email || '—')}</td>
-                  <td><strong>${_esc(r.requested_name)}</strong></td>
-                  <td style="max-width:200px;word-break:break-word;">${_esc(r.reason || '—')}</td>
+                  <td>${esc(r.requester?.name || r.requester?.email || '—')}</td>
+                  <td><strong>${esc(r.requested_name)}</strong></td>
+                  <td style="max-width:200px;word-break:break-word;">${esc(r.reason || '—')}</td>
                   <td style="white-space:nowrap;">
                     <button class="btn btn-sm btn-primary"
-                      data-ncr-approve="${_attr(r.id)}"
-                      data-ncr-uid="${_attr(r.requested_by)}"
-                      data-ncr-name="${_attr(r.requested_name)}">Approve</button>
-                    <button class="btn btn-sm" data-ncr-reject="${_attr(r.id)}" style="margin-left:6px;">Reject</button>
+                      data-ncr-approve="${attr(r.id)}"
+                      data-ncr-uid="${attr(r.requested_by)}"
+                      data-ncr-name="${attr(r.requested_name)}">Approve</button>
+                    <button class="btn btn-sm" data-ncr-reject="${attr(r.id)}" style="margin-left:6px;">Reject</button>
                   </td>
                 </tr>`).join('')}
               </tbody>
@@ -419,14 +418,14 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
               <tbody>
                 ${jtcReqs.map(r => `<tr>
                   <td style="white-space:nowrap;">${_fmt(r.created_at)}</td>
-                  <td>${_esc(r.employee?.full_name || r.requester?.name || '—')}</td>
-                  <td>${_esc(r.current_title || '—')}</td>
-                  <td><strong>${_esc(r.requested_title)}</strong></td>
-                  <td style="max-width:200px;word-break:break-word;">${_esc(r.reason || '—')}</td>
+                  <td>${esc(r.employee?.full_name || r.requester?.name || '—')}</td>
+                  <td>${esc(r.current_title || '—')}</td>
+                  <td><strong>${esc(r.requested_title)}</strong></td>
+                  <td style="max-width:200px;word-break:break-word;">${esc(r.reason || '—')}</td>
                   <td style="white-space:nowrap;">
                     <button class="btn btn-sm btn-primary"
-                      data-jtcr-approve="${_attr(r.id)}">Approve</button>
-                    <button class="btn btn-sm" data-jtcr-reject="${_attr(r.id)}" style="margin-left:6px;">Reject</button>
+                      data-jtcr-approve="${attr(r.id)}">Approve</button>
+                    <button class="btn btn-sm" data-jtcr-reject="${attr(r.id)}" style="margin-left:6px;">Reject</button>
                   </td>
                 </tr>`).join('')}
               </tbody>
@@ -484,7 +483,7 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
   document.querySelectorAll('[data-del-reject]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.delReject;
-      const note = prompt('Rejection reason (optional):');
+      const note = await promptModal({ title: 'Rejection reason', placeholder: 'Optional', confirmText: 'Reject' });
       if (note === null) return;
       btn.disabled = true;
       try {
@@ -528,7 +527,7 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
   document.querySelectorAll('[data-ncr-reject]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.ncrReject;
-      const note = prompt('Rejection reason (optional):');
+      const note = await promptModal({ title: 'Rejection reason', placeholder: 'Optional', confirmText: 'Reject' });
       if (note === null) return;
       btn.disabled = true;
       try {
@@ -567,7 +566,7 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
   document.querySelectorAll('[data-jtcr-reject]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.jtcrReject;
-      const note = prompt('Rejection reason (optional):');
+      const note = await promptModal({ title: 'Rejection reason', placeholder: 'Optional', confirmText: 'Reject' });
       if (note === null) return;
       btn.disabled = true;
       try {

@@ -13,7 +13,7 @@ import { empSelectHtml, wireEmpSelect }               from '../components/empSel
 import { canViewReports, isAdmin, isManager }          from '../auth.js';
 import {
   setFormatPrefs, formatDuration, formatAmount,
-  getMondayOf, getWeekDays, toISODate, formatDate,
+  getMondayOf, getWeekDays, toISODate, formatDate, esc, attr,
 } from '../format.js';
 
 // ── module state ─────────────────────────────────────────────
@@ -194,21 +194,21 @@ async function _populateDropdowns(showAmount) {
     const sel = document.getElementById('rp-client');
     if (!sel) return;
     sel.innerHTML = `<option value="">All clients</option>` +
-      list.map(c => `<option value="${c.id}">${_esc(c.name)}</option>`).join('');
+      list.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
   }).catch(err => window.showToast?.(err.message, 'error'));
 
   getProjects().then(list => {
     const sel = document.getElementById('rp-project');
     if (!sel) return;
     sel.innerHTML = `<option value="">All projects</option>` +
-      list.map(p => `<option value="${p.id}">${_esc(p.name)}</option>`).join('');
+      list.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   }).catch(err => window.showToast?.(err.message, 'error'));
 
   getTags().then(list => {
     const sel = document.getElementById('rp-tag');
     if (!sel) return;
     sel.innerHTML = `<option value="">All tags</option>` +
-      list.map(t => `<option value="${t.id}">${_esc(t.name)}</option>`).join('');
+      list.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
   }).catch(err => window.showToast?.(err.message, 'error'));
 }
 
@@ -308,7 +308,7 @@ function _rebuildTaskDropdown() {
   if (seen.size === 0) { sel.style.display = 'none'; sel.value = ''; _fTaskId = ''; return; }
   const prev = sel.value;
   sel.innerHTML = `<option value="">All tasks</option>` +
-    [...seen].map(([id, name]) => `<option value="${id}">${_esc(name)}</option>`).join('');
+    [...seen].map(([id, name]) => `<option value="${id}">${esc(name)}</option>`).join('');
   if (prev && seen.has(prev)) sel.value = prev;
   sel.style.display = '';
 }
@@ -513,8 +513,8 @@ function _renderTable(agg, showAmount) {
     const hasChildren = _groupSecond !== 'none' && g.children.size > 0;
     rows += `<tr class="rp-group-row" style="background:var(--bg-card);font-weight:600;">
       <td style="padding-left:var(--sp-3);">
-        <span class="project-dot" style="background:${_attr(g.color)};margin-right:6px;"></span>
-        ${_esc(g.label)}
+        <span class="project-dot" style="background:${attr(g.color)};margin-right:6px;"></span>
+        ${esc(g.label)}
       </td>
       <td style="text-align:right;">${formatDuration(g.hours)}</td>
       ${amtCol ? `<td style="text-align:right;">${formatAmount(g.amount)}</td>` : ''}
@@ -523,7 +523,7 @@ function _renderTable(agg, showAmount) {
     if (hasChildren) {
       for (const [, child] of g.children) {
         rows += `<tr class="rp-child-row">
-          <td style="padding-left:var(--sp-6);color:var(--text-muted);">${_esc(child.label)}</td>
+          <td style="padding-left:var(--sp-6);color:var(--text-muted);">${esc(child.label)}</td>
           <td style="text-align:right;color:var(--text-muted);">${formatDuration(child.hours)}</td>
           ${amtCol ? `<td style="text-align:right;color:var(--text-muted);">${formatAmount(child.amount)}</td>` : ''}
         </tr>`;
@@ -619,8 +619,8 @@ async function _renderDonut(agg) {
     legend.innerHTML = [...agg.groups.values()].map(g => {
       const pct = agg.grand > 0 ? Math.round(g.hours / agg.grand * 100) : 0;
       return `<div class="donut-legend-item">
-        <span class="donut-legend-dot" style="background:${_attr(g.color)};"></span>
-        <span class="donut-legend-name">${_esc(g.label)}</span>
+        <span class="donut-legend-dot" style="background:${attr(g.color)};"></span>
+        <span class="donut-legend-name">${esc(g.label)}</span>
         <span class="donut-legend-value">${formatDuration(g.hours)}</span>
         <span class="donut-legend-pct">${pct}%</span>
       </div>`;
@@ -695,13 +695,4 @@ function _dateRange(from, to) {
 function _destroyCharts() {
   if (_barChart)   { _barChart.destroy();   _barChart   = null; }
   if (_donutChart) { _donutChart.destroy(); _donutChart = null; }
-}
-
-function _esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, ch =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-}
-
-function _attr(s) {
-  return String(s ?? '').replace(/"/g, '&quot;');
 }

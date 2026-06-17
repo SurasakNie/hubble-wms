@@ -11,6 +11,7 @@ import {
   getSkills, addSkill, removeSkill,
   findProfileByEmail, updateProfileName,
 } from '../api/employees.js';
+import { esc, attr } from '../format.js';
 
 // Supabase Edge Functions base — admin actions (provision / reset / clear-mfa)
 // and the read-only account-activation-status feed for the Account Status tab.
@@ -67,7 +68,7 @@ function _jobTitleOpts(currentTitle) {
   return [
     `<option value="">— None —</option>`,
     ...sorted.map(t =>
-      `<option value="${_attr(t)}"${currentTitle === t ? ' selected' : ''}>${_esc(t)}</option>`
+      `<option value="${attr(t)}"${currentTitle === t ? ' selected' : ''}>${esc(t)}</option>`
     ),
     `<option value="__new__">+ Add new title…</option>`,
   ].join('');
@@ -189,7 +190,7 @@ export async function render(profile) {
   }
 
   const deptOpts = `<option value="">All Departments</option>` +
-    _departments.map(d => `<option value="${_attr(d.code)}">${_esc(d.label)}</option>`).join('');
+    _departments.map(d => `<option value="${attr(d.code)}">${esc(d.label)}</option>`).join('');
   document.getElementById('em-dept').innerHTML = deptOpts;
   const _acctDeptEl = document.getElementById('em-acct-dept');
   if (_acctDeptEl) _acctDeptEl.innerHTML = deptOpts;
@@ -313,13 +314,13 @@ function _renderRow(e, admin) {
   const rowStyle   = archived ? ' style="opacity:.55"' : '';
 
   return `
-    <tr data-id="${_attr(e.id)}"${rowStyle}>
-      <td><code style="font-family:var(--mono,monospace);font-size:var(--font-xs)">${_esc(e.employee_id || '—')}</code></td>
-      <td style="font-weight:500">${_esc(e.full_name || '—')}</td>
-      <td class="text-muted" style="font-size:var(--font-sm)">${_esc(deptLabel)}</td>
-      <td class="text-muted" style="font-size:var(--font-sm)">${_esc(typeLabel)}</td>
-      <td>${e.job_title ? _esc(e.job_title) : '<span class="text-muted">—</span>'}</td>
-      <td><span class="${_attr(badgeCls)}">${_esc(e.status || '—')}</span></td>
+    <tr data-id="${attr(e.id)}"${rowStyle}>
+      <td><code style="font-family:var(--mono,monospace);font-size:var(--font-xs)">${esc(e.employee_id || '—')}</code></td>
+      <td style="font-weight:500">${esc(e.full_name || '—')}</td>
+      <td class="text-muted" style="font-size:var(--font-sm)">${esc(deptLabel)}</td>
+      <td class="text-muted" style="font-size:var(--font-sm)">${esc(typeLabel)}</td>
+      <td>${e.job_title ? esc(e.job_title) : '<span class="text-muted">—</span>'}</td>
+      <td><span class="${attr(badgeCls)}">${esc(e.status || '—')}</span></td>
       <td class="col-actions">
         <div class="row-actions">
           ${admin ? `
@@ -427,7 +428,7 @@ function _renderAccountPanel() {
 
   const pending = list.filter(x => ATTENTION.has(x.st)).length;
   const signIn = a => (a && a.last_sign_in_at)
-    ? _esc(a.last_sign_in_at.slice(0, 10))
+    ? esc(a.last_sign_in_at.slice(0, 10))
     : '<span class="text-muted">never</span>';
 
   wrap.innerHTML = `
@@ -446,10 +447,10 @@ function _renderAccountPanel() {
             const m = META[st];
             const a = _activationMap?.[e.user_id];
             return `
-            <tr data-id="${_attr(e.id)}" style="cursor:pointer">
-              <td style="font-weight:500">${_esc(e.full_name || '—')}</td>
-              <td><code style="font-family:var(--mono,monospace);font-size:var(--font-xs)">${_esc(e.employee_id || '—')}</code></td>
-              <td class="text-muted" style="font-size:var(--font-sm)">${_esc(e.department?.label || e.department_code || '—')}</td>
+            <tr data-id="${attr(e.id)}" style="cursor:pointer">
+              <td style="font-weight:500">${esc(e.full_name || '—')}</td>
+              <td><code style="font-family:var(--mono,monospace);font-size:var(--font-xs)">${esc(e.employee_id || '—')}</code></td>
+              <td class="text-muted" style="font-size:var(--font-sm)">${esc(e.department?.label || e.department_code || '—')}</td>
               <td><span class="${m.cls}">${m.label}</span></td>
               <td class="text-muted" style="font-size:var(--font-sm)">${signIn(a)}</td>
             </tr>`;
@@ -529,17 +530,17 @@ function _renderModal(isEdit, admin) {
 
   const managerOpts = _employees
     .filter(e => e.status === 'active' && e.id !== emp.id)
-    .map(e => `<option value="${_attr(e.id)}" ${emp.direct_manager_id === e.id ? 'selected' : ''}>
-                 ${_esc(e.employee_id || '')} — ${_esc(e.full_name || '')}
+    .map(e => `<option value="${attr(e.id)}" ${emp.direct_manager_id === e.id ? 'selected' : ''}>
+                 ${esc(e.employee_id || '')} — ${esc(e.full_name || '')}
                </option>`)
     .join('');
 
   const deptOpts = _departments.map(d =>
-    `<option value="${_attr(d.code)}" ${emp.department_code === d.code ? 'selected' : ''}>${_esc(d.label)}</option>`
+    `<option value="${attr(d.code)}" ${emp.department_code === d.code ? 'selected' : ''}>${esc(d.label)}</option>`
   ).join('');
 
   const typeOpts = _empTypes.map(t =>
-    `<option value="${_attr(t.code)}" ${emp.employment_type_code === t.code ? 'selected' : ''}>${_esc(t.label)}</option>`
+    `<option value="${attr(t.code)}" ${emp.employment_type_code === t.code ? 'selected' : ''}>${esc(t.label)}</option>`
   ).join('');
 
   mount.innerHTML = `
@@ -547,7 +548,7 @@ function _renderModal(isEdit, admin) {
       <div class="modal modal-lg" id="em-modal">
 
         <div class="modal-header">
-          <span class="modal-title">${isEdit ? `Edit — ${_esc(emp.employee_id || emp.full_name || '')}` : 'Add Employee'}</span>
+          <span class="modal-title">${isEdit ? `Edit — ${esc(emp.employee_id || emp.full_name || '')}` : 'Add Employee'}</span>
           <button class="modal-close" id="em-modal-close">&times;</button>
         </div>
 
@@ -563,27 +564,27 @@ function _renderModal(isEdit, admin) {
           <div class="tab-panel active" id="em-tab-personal">
             <div class="form-group">
               <label>Full Name *</label>
-              <input type="text" id="em-f-name" value="${_attr(emp.full_name || '')}" placeholder="Full name">
+              <input type="text" id="em-f-name" value="${attr(emp.full_name || '')}" placeholder="Full name">
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)">
               <div class="form-group">
                 <label>Contact Email (work)</label>
-                <input type="email" id="em-f-contact-email" value="${_attr(emp.contact_email || '')}"
+                <input type="email" id="em-f-contact-email" value="${attr(emp.contact_email || '')}"
                        placeholder="firstname.hubbleeng@gmail.com">
               </div>
               <div class="form-group">
                 <label>Personal Phone</label>
-                <input type="text" id="em-f-phone" value="${_attr(emp.personal_phone || '')}" placeholder="+66…">
+                <input type="text" id="em-f-phone" value="${attr(emp.personal_phone || '')}" placeholder="+66…">
               </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)">
               <div class="form-group">
                 <label>Personal Email</label>
-                <input type="email" id="em-f-personal-email" value="${_attr(emp.personal_email || '')}">
+                <input type="email" id="em-f-personal-email" value="${attr(emp.personal_email || '')}">
               </div>
               <div class="form-group">
                 <label>Date of Birth</label>
-                <input type="date" id="em-f-dob" value="${_attr(emp.date_of_birth || '')}">
+                <input type="date" id="em-f-dob" value="${attr(emp.date_of_birth || '')}">
               </div>
             </div>
             <div style="border-top:1px solid var(--border);padding-top:var(--sp-3);margin-top:var(--sp-1)">
@@ -591,17 +592,17 @@ function _renderModal(isEdit, admin) {
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)">
                 <div class="form-group">
                   <label>Name</label>
-                  <input type="text" id="em-f-ec-name" value="${_attr(emp.emergency_contact_name || '')}">
+                  <input type="text" id="em-f-ec-name" value="${attr(emp.emergency_contact_name || '')}">
                 </div>
                 <div class="form-group">
                   <label>Relationship</label>
-                  <input type="text" id="em-f-ec-rel" value="${_attr(emp.emergency_contact_relationship || '')}"
+                  <input type="text" id="em-f-ec-rel" value="${attr(emp.emergency_contact_relationship || '')}"
                          placeholder="Spouse, Parent…">
                 </div>
               </div>
               <div class="form-group">
                 <label>Phone</label>
-                <input type="text" id="em-f-ec-phone" value="${_attr(emp.emergency_contact_phone || '')}">
+                <input type="text" id="em-f-ec-phone" value="${attr(emp.emergency_contact_phone || '')}">
               </div>
             </div>
           </div>
@@ -638,7 +639,7 @@ function _renderModal(isEdit, admin) {
               </div>
               <div class="form-group">
                 <label>Salary Grade</label>
-                <input type="text" id="em-f-grade" value="${_attr(emp.salary_grade || '')}">
+                <input type="text" id="em-f-grade" value="${attr(emp.salary_grade || '')}">
               </div>
             </div>
             <div class="form-group">
@@ -651,15 +652,15 @@ function _renderModal(isEdit, admin) {
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--sp-3)">
               <div class="form-group">
                 <label>Start Date</label>
-                <input type="date" id="em-f-start" value="${_attr(emp.start_date || '')}">
+                <input type="date" id="em-f-start" value="${attr(emp.start_date || '')}">
               </div>
               <div class="form-group">
                 <label>Contract End</label>
-                <input type="date" id="em-f-contract-end" value="${_attr(emp.contract_end_date || '')}">
+                <input type="date" id="em-f-contract-end" value="${attr(emp.contract_end_date || '')}">
               </div>
               <div class="form-group">
                 <label>Probation End</label>
-                <input type="date" id="em-f-probation" value="${_attr(emp.probation_end_date || '')}">
+                <input type="date" id="em-f-probation" value="${attr(emp.probation_end_date || '')}">
               </div>
             </div>
             ${isEdit ? `
@@ -679,14 +680,14 @@ function _renderModal(isEdit, admin) {
               </div>
               <div id="em-link-status" style="font-size:var(--font-sm);margin-bottom:var(--sp-2);">
                 ${emp.linked_user
-                  ? `<span style="color:var(--accent)">✓ Linked:</span> ${_esc(emp.linked_user.name || '')} &lt;${_esc(emp.linked_user.email || '')}&gt;`
+                  ? `<span style="color:var(--accent)">✓ Linked:</span> ${esc(emp.linked_user.name || '')} &lt;${esc(emp.linked_user.email || '')}&gt;`
                   : `<span style="color:#ef9a9a">✗ Not linked</span> — this employee cannot submit leave requests`
                 }
               </div>
               <div style="display:flex;gap:var(--sp-2);align-items:center;">
                 <input type="email" id="em-link-email" class="form-input" style="flex:1;max-width:280px;"
                        placeholder="Google account email"
-                       value="${emp.linked_user ? _attr(emp.linked_user.email || '') : _attr(emp.contact_email || '')}">
+                       value="${emp.linked_user ? attr(emp.linked_user.email || '') : attr(emp.contact_email || '')}">
                 <button class="btn btn-ghost btn-sm" id="em-link-btn">Link / Update</button>
                 ${emp.linked_user ? `<button class="btn btn-ghost btn-sm" id="em-unlink-btn" style="color:var(--error)">Unlink</button>` : ''}
               </div>
@@ -706,12 +707,12 @@ function _renderModal(isEdit, admin) {
               <div class="form-group">
                 <label>Salary (THB / month)</label>
                 <input type="number" id="em-f-salary" min="0" step="1"
-                       value="${_attr(comp.salary != null ? comp.salary : '')}">
+                       value="${attr(comp.salary != null ? comp.salary : '')}">
               </div>
               <div class="form-group">
                 <label>Hourly Rate (THB)</label>
                 <input type="number" id="em-f-hourly" min="0" step="0.01"
-                       value="${_attr(comp.hourly_rate != null ? comp.hourly_rate : '')}">
+                       value="${attr(comp.hourly_rate != null ? comp.hourly_rate : '')}">
               </div>
             </div>
             <div class="form-group">
@@ -726,27 +727,27 @@ function _renderModal(isEdit, admin) {
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)">
               <div class="form-group">
                 <label>Bank Name</label>
-                <input type="text" id="em-f-bank-name" value="${_attr(comp.bank_name || '')}">
+                <input type="text" id="em-f-bank-name" value="${attr(comp.bank_name || '')}">
               </div>
               <div class="form-group">
                 <label>Bank Account</label>
-                <input type="text" id="em-f-bank-acct" value="${_attr(comp.bank_account || '')}">
+                <input type="text" id="em-f-bank-acct" value="${attr(comp.bank_account || '')}">
               </div>
             </div>
             <div class="form-group">
               <label>Bonus / Equity notes</label>
-              <input type="text" id="em-f-bonus" value="${_attr(comp.bonus_equity || '')}">
+              <input type="text" id="em-f-bonus" value="${attr(comp.bonus_equity || '')}">
             </div>
             <div style="border-top:1px solid var(--border);padding-top:var(--sp-3);margin-top:var(--sp-1)">
               <div class="text-muted" style="font-size:var(--font-xs);font-weight:600;margin-bottom:var(--sp-2)">IDENTITY DOCUMENTS</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)">
                 <div class="form-group">
                   <label>National ID</label>
-                  <input type="text" id="em-f-natid" value="${_attr(comp.national_id || '')}">
+                  <input type="text" id="em-f-natid" value="${attr(comp.national_id || '')}">
                 </div>
                 <div class="form-group">
                   <label>Passport Number</label>
-                  <input type="text" id="em-f-passport" value="${_attr(comp.passport_number || '')}">
+                  <input type="text" id="em-f-passport" value="${attr(comp.passport_number || '')}">
                 </div>
               </div>
             </div>
@@ -901,7 +902,7 @@ function _renderModal(isEdit, admin) {
 
         const statusEl = mount.querySelector('#em-link-status');
         if (statusEl) statusEl.innerHTML =
-          `<span style="color:var(--accent)">✓ Linked:</span> ${_esc(profile.name || '')} &lt;${_esc(profile.email)}&gt;`;
+          `<span style="color:var(--accent)">✓ Linked:</span> ${esc(profile.name || '')} &lt;${esc(profile.email)}&gt;`;
 
         window.showToast?.(`Linked to ${profile.email}`, 'success');
       } catch (err) {
@@ -960,8 +961,8 @@ function _renderModal(isEdit, admin) {
         const box  = mount.querySelector('#em-credential-box');
         const text = mount.querySelector('#em-credential-text');
         text.innerHTML = `<strong>Account created.</strong> Share these credentials privately:<br>
-          <span style="font-family:monospace">Employee ID: ${_esc(result.employee_id)}</span><br>
-          <span style="font-family:monospace">Temp password: ${_esc(result.temp_password)}</span><br>
+          <span style="font-family:monospace">Employee ID: ${esc(result.employee_id)}</span><br>
+          <span style="font-family:monospace">Temp password: ${esc(result.temp_password)}</span><br>
           <span style="color:var(--warning);font-size:11px">⚠ Employee must change password on first login</span>`;
         mount.querySelector('#em-copy-cred').onclick = () => {
           navigator.clipboard.writeText(credText);
@@ -970,7 +971,7 @@ function _renderModal(isEdit, admin) {
         box.style.display = '';
 
         mount.querySelector('#em-link-status').innerHTML =
-          `<span style="color:var(--accent)">✓ Account provisioned</span> — ${_esc(result.email)}`;
+          `<span style="color:var(--accent)">✓ Account provisioned</span> — ${esc(result.email)}`;
         btn.style.display = 'none';
         window.showToast?.('Account provisioned', 'success');
         await _refreshEmployees();   // pick up the new user_id link so the tab/table update without a reload
@@ -1001,8 +1002,8 @@ function _renderModal(isEdit, admin) {
         const box  = mount.querySelector('#em-credential-box');
         const text = mount.querySelector('#em-credential-text');
         text.innerHTML = `<strong>Password reset.</strong> Share this privately:<br>
-          <span style="font-family:monospace">Employee ID: ${_esc(_modalEmployee.employee_id)}</span><br>
-          <span style="font-family:monospace">New password: ${_esc(data.new_password)}</span><br>
+          <span style="font-family:monospace">Employee ID: ${esc(_modalEmployee.employee_id)}</span><br>
+          <span style="font-family:monospace">New password: ${esc(data.new_password)}</span><br>
           <span style="color:var(--warning);font-size:11px">⚠ Employee must change password on next login</span>`;
         mount.querySelector('#em-copy-cred').onclick = () => {
           navigator.clipboard.writeText(credText);
@@ -1191,14 +1192,14 @@ function _renderDocsList() {
   list.innerHTML = _modalDocs.map(doc => {
     const label  = DOC_TYPES[doc.doc_type] || doc.doc_type;
     const expiry = doc.expiry_date
-      ? `<span class="badge badge-pending" style="flex-shrink:0">expires ${_esc(doc.expiry_date)}</span>`
+      ? `<span class="badge badge-pending" style="flex-shrink:0">expires ${esc(doc.expiry_date)}</span>`
       : '';
     return `
       <div style="display:flex;align-items:center;gap:var(--sp-2);padding:7px 0;border-bottom:1px solid var(--border)">
-        <span class="badge badge-client" style="flex-shrink:0">${_esc(label)}</span>
-        <span style="flex:1;font-size:var(--font-sm)">${doc.title ? _esc(doc.title) : '<span class="text-muted">—</span>'}</span>
+        <span class="badge badge-client" style="flex-shrink:0">${esc(label)}</span>
+        <span style="flex:1;font-size:var(--font-sm)">${doc.title ? esc(doc.title) : '<span class="text-muted">—</span>'}</span>
         ${expiry}
-        <button class="row-action-btn danger em-doc-del" data-id="${_attr(doc.id)}" title="Remove" style="flex-shrink:0">
+        <button class="row-action-btn danger em-doc-del" data-id="${attr(doc.id)}" title="Remove" style="flex-shrink:0">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"/>
@@ -1272,10 +1273,10 @@ function _renderSkillsList() {
     const catLabel = SKILL_CATS[sk.category] || sk.category;
     return `
       <div style="display:flex;align-items:center;gap:var(--sp-2);padding:7px 0;border-bottom:1px solid var(--border)">
-        <span class="badge badge-admin" style="flex-shrink:0">${_esc(catLabel)}</span>
-        <span style="flex:1;font-size:var(--font-sm);font-weight:500">${_esc(sk.name)}</span>
-        ${sk.level ? `<span class="text-muted" style="font-size:var(--font-xs)">${_esc(sk.level)}</span>` : ''}
-        <button class="row-action-btn danger em-sk-del" data-id="${_attr(sk.id)}" title="Remove" style="flex-shrink:0">
+        <span class="badge badge-admin" style="flex-shrink:0">${esc(catLabel)}</span>
+        <span style="flex:1;font-size:var(--font-sm);font-weight:500">${esc(sk.name)}</span>
+        ${sk.level ? `<span class="text-muted" style="font-size:var(--font-xs)">${esc(sk.level)}</span>` : ''}
+        <button class="row-action-btn danger em-sk-del" data-id="${attr(sk.id)}" title="Remove" style="flex-shrink:0">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -1344,7 +1345,7 @@ function _openArchiveModal(emp) {
         </div>
         <div class="modal-body" style="gap:var(--sp-2)">
           <p style="margin:0;font-size:var(--font-sm)">
-            Archive <strong>${_esc(emp.full_name || emp.employee_id || '')}</strong>?
+            Archive <strong>${esc(emp.full_name || emp.employee_id || '')}</strong>?
           </p>
           <p style="margin:0" class="text-muted" style="font-size:var(--font-xs)">
             The record is preserved — no data is deleted.
@@ -1493,13 +1494,3 @@ function _openInfoModal() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
-
-function _esc(s) {
-  return String(s).replace(/[&<>"']/g, ch =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])
-  );
-}
-
-function _attr(s) {
-  return String(s).replace(/"/g, '&quot;');
-}

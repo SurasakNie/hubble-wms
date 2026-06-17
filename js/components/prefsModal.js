@@ -2,16 +2,11 @@
 // General tab is fully read-only. Name changes are requested from the Profile modal.
 
 import { updateProfile }  from '../api/users.js';
-import { setFormatPrefs } from '../format.js';
+import { setFormatPrefs, esc, attr } from '../format.js';
 import { supabase }       from '../config.js';
 import { checkPassword, renderPwFeedback } from '../passwordPolicy.js';
 
 const ROLE_LABELS = { owner:'Owner', admin:'Admin', manager:'Manager', member:'Member', client:'Client' };
-
-function _esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, ch =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-}
 
 export function openPrefsModal(profile) {
   document.getElementById('modal-mount').innerHTML = `
@@ -39,15 +34,15 @@ export function openPrefsModal(profile) {
                         letter-spacing:1px;font-weight:600;margin-bottom:var(--sp-3);">Profile info</div>
             <div class="form-group">
               <label>Name</label>
-              <div style="color:var(--text-primary);padding:8px 0;">${_esc(profile.name || '—')}</div>
+              <div style="color:var(--text-primary);padding:8px 0;">${esc(profile.name || '—')}</div>
             </div>
             <div class="form-group">
               <label>Job title</label>
-              <div style="color:var(--text-primary);padding:8px 0;">${_esc(profile.job_title || '—')}</div>
+              <div style="color:var(--text-primary);padding:8px 0;">${esc(profile.job_title || '—')}</div>
             </div>
             <div class="form-group">
               <label>Email</label>
-              <div style="color:var(--text-primary);padding:8px 0;">${_esc(profile.email || '—')}</div>
+              <div style="color:var(--text-primary);padding:8px 0;">${esc(profile.email || '—')}</div>
             </div>
             <div class="form-group">
               <label>Access role</label>
@@ -289,7 +284,7 @@ export function openPrefsModal(profile) {
         <div style="font-size:var(--font-xs);color:var(--text-muted);margin-top:var(--sp-2);">Can't scan? Enter this key manually:</div>
         <div style="font-family:monospace;font-size:var(--font-sm);color:var(--text-primary);letter-spacing:1px;
                     background:var(--bg-input,#1e2329);border:1px solid var(--border);border-radius:4px;padding:8px 10px;
-                    word-break:break-all;margin-top:4px;">${_esc(enrollData.totp.secret)}</div>
+                    word-break:break-all;margin-top:4px;">${esc(enrollData.totp.secret)}</div>
       </div>
       <div class="form-group">
         <label>Verification code</label>

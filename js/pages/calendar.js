@@ -5,7 +5,7 @@
 import { getEntries, updateEntryTimes, updateEntry } from '../api/timeEntries.js';
 import { openCreateModal, openEditModal } from '../components/entryModal.js';
 import { isClientRole, isAdmin, isManager } from '../auth.js';
-import { toISODate, formatDuration, getMondayOf, formatWeekRange, getISOWeek, safeColor } from '../format.js';
+import { toISODate, formatDuration, getMondayOf, formatWeekRange, getISOWeek, safeColor, esc, attr } from '../format.js';
 import { getEmployees } from '../api/employees.js';
 import { empSelectHtml, wireEmpSelect } from '../components/empSelect.js';
 import { getPublicHolidays } from '../api/holidays.js';
@@ -198,14 +198,14 @@ export async function render(profile) {
       const dur      = _durLabel(arg.event.start, arg.event.end);
 
       const projHtml = projLabel
-        ? `<div class="fc-ev-proj" style="color:${safeColor(color)}">${_esc(projLabel)}</div>`
+        ? `<div class="fc-ev-proj" style="color:${safeColor(color)}">${esc(projLabel)}</div>`
         : '';
 
       return { html: `
         <div class="fc-ev-body">
-          <div class="fc-ev-title">${_esc(desc)}</div>
+          <div class="fc-ev-title">${esc(desc)}</div>
           ${projHtml}
-          <div class="fc-ev-bottom">${_esc(dur)}</div>
+          <div class="fc-ev-bottom">${esc(dur)}</div>
         </div>
       `};
     },
@@ -532,10 +532,4 @@ function _durLabel(start, end) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${h}:${String(m).padStart(2, '0')}`;
-}
-
-function _esc(s) {
-  return String(s).replace(/[&<>"']/g, ch =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])
-  );
 }

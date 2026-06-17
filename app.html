@@ -682,7 +682,7 @@
   // ── Page routes ──────────────────────────────────────────────
   // Version query busts the browser cache so a hard refresh always loads the latest page JS.
   // Bump this alongside the CSS ?v= when page modules change.
-  const V = '?v=98';
+  const V = '?v=99';
   const pages = {
     '#client-portal': () => import('./js/pages/clientPortal.js' + V),
     '#tracker':   () => import('./js/pages/tracker.js'   + V),
@@ -702,11 +702,29 @@
     '#documents': () => import('./js/pages/documents.js'  + V),
   };
 
+  // Route-role matrix — defence-in-depth that mirrors the nav visibility rules
+  // in applyRoleVisibility(). A manually typed hash for a role-restricted page
+  // bounces to a safe default instead of rendering an empty/partial page. RLS
+  // remains the authoritative data boundary; this only aligns UX with intent.
+  const routeAllowed = {
+    '#reports':   () => canViewReports(),          // owner/admin/manager
+    '#clients':   () => isAdmin() || isManager(),  // owner/admin/manager
+    '#employees': () => isAdmin(),                  // owner/admin
+  };
+
   for (const [hash, loader] of Object.entries(pages)) {
     route(hash, async () => {
       // CLIENT-01: clients are confined to their read-only portal — bounce any
       // other route (covers a manually typed hash) back to the portal.
       if (isClientRole() && hash !== '#client-portal') { window.location.hash = '#client-portal'; return; }
+      // Role gate for restricted pages (errors thrown here surface via the
+      // router's async error boundary).
+      const gate = routeAllowed[hash];
+      if (gate && !gate()) {
+        window.showToast?.('You don’t have access to that page.', 'error');
+        window.location.hash = '#calendar';
+        return;
+      }
       const topbarLeft = document.getElementById('topbar-left');
       if (topbarLeft) topbarLeft.innerHTML = '';
       const mod = await loader();

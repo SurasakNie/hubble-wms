@@ -32,22 +32,35 @@ export async function render(profile) {
   } catch { _company = 'Your projects'; }
 
   try {
-    const [summaryRes, expRes, tripRes] = await Promise.all([
-      supabase.rpc('get_client_project_summary'),
-      supabase.from('cash_transactions')
-        .select('id, project_id, txn_date, amount, currency, direction, note, status')
-        .eq('direction', 'out')
-        .order('txn_date', { ascending: false }),
-      supabase.from('travel_requests')
-        .select('id, project_id, destination, start_date, end_date, estimated_cost, currency, status, travel_ref')
-        .order('start_date', { ascending: false }),
-    ]);
+    // 1) Summary first — it is the authoritative list of THIS client's projects.
+    const summaryRes = await supabase.rpc('get_client_project_summary');
     if (summaryRes.error) throw summaryRes.error;
     _summary  = summaryRes.data || [];
-    _expenses = (expRes.data  || []);
-    _trips    = (tripRes.data || []);
     _projName = {};
     _summary.forEach(s => { _projName[s.project_id] = s.project_name; });
+
+    // 2) Detail rows are scoped to those project IDs as defense-in-depth.
+    //    RLS remains the authoritative boundary; this just ensures we never even
+    //    fetch a row whose project isn't one of the client's known projects.
+    const projectIds = Object.keys(_projName);
+    if (projectIds.length === 0) {
+      _expenses = [];
+      _trips    = [];
+    } else {
+      const [expRes, tripRes] = await Promise.all([
+        supabase.from('cash_transactions')
+          .select('id, project_id, txn_date, amount, currency, direction, note, status')
+          .eq('direction', 'out')
+          .in('project_id', projectIds)
+          .order('txn_date', { ascending: false }),
+        supabase.from('travel_requests')
+          .select('id, project_id, destination, start_date, end_date, estimated_cost, currency, status, travel_ref')
+          .in('project_id', projectIds)
+          .order('start_date', { ascending: false }),
+      ]);
+      _expenses = (expRes.data  || []);
+      _trips    = (tripRes.data || []);
+    }
   } catch (err) {
     content.innerHTML = `
       <div class="empty-state" style="margin-top:60px">
@@ -129,20 +142,31 @@ function _card(label, value) {
     </div>`;
 }
 
+// Single source of truth for the rows the client may see — used by BOTH the
+// rendered table and the text export. Only rows tied to a KNOWN client project
+// (one present in _projName) are included; anything else is dropped, regardless
+// of amount. RLS is the authoritative boundary; this is defence-in-depth.
+function _buildRows() {
+  return [
+    ..._expenses
+      .filter(e => Object.prototype.hasOwnProperty.call(_projName, e.project_id))
+      .map(e => ({
+        date: e.txn_date, project: _projName[e.project_id],
+        type: 'Expense', detail: e.note || '—',
+        amount: Number(e.amount || 0), currency: e.currency || 'THB', status: e.status || '',
+      })),
+    ..._trips
+      .filter(t => Object.prototype.hasOwnProperty.call(_projName, t.project_id))
+      .map(t => ({
+        date: t.start_date, project: _projName[t.project_id],
+        type: 'Travel', detail: `${t.destination || ''}${t.travel_ref ? ` (${t.travel_ref})` : ''}`,
+        amount: Number(t.estimated_cost || 0), currency: t.currency || 'THB', status: t.status || '',
+      })),
+  ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+
 function _renderExpenseTable() {
-  const rows = [
-    ..._expenses.map(e => ({
-      date: e.txn_date, project: _projName[e.project_id] || '—',
-      type: 'Expense', detail: e.note || '—',
-      amount: Number(e.amount || 0), currency: e.currency || 'THB', status: e.status || '',
-    })),
-    ..._trips.map(t => ({
-      date: t.start_date, project: _projName[t.project_id] || '—',
-      type: 'Travel', detail: `${t.destination || ''}${t.travel_ref ? ` (${t.travel_ref})` : ''}`,
-      amount: Number(t.estimated_cost || 0), currency: t.currency || 'THB', status: t.status || '',
-    })),
-  ].filter(r => r.project !== '—' || r.amount)   // hide rows not tied to one of their projects
-   .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const rows = _buildRows();
 
   if (rows.length === 0) return `<div class="text-muted">No expenses or travel recorded.</div>`;
 
@@ -176,8 +200,8 @@ function _exportText() {
   });
   lines.push('');
   lines.push('EXPENSES & TRAVEL');
-  _expenses.forEach(e => lines.push(`  ${e.txn_date}  ${_projName[e.project_id] || '—'}  Expense  ${Number(e.amount || 0).toFixed(2)} ${e.currency || 'THB'}  ${e.note || ''}`));
-  _trips.forEach(t => lines.push(`  ${t.start_date}  ${_projName[t.project_id] || '—'}  Travel  ${Number(t.estimated_cost || 0).toFixed(2)} ${t.currency || 'THB'}  ${t.destination || ''}`));
+  // Same filtered rows the table shows — never export rows outside the client's projects.
+  _buildRows().forEach(r => lines.push(`  ${r.date}  ${r.project}  ${r.type}  ${r.amount.toFixed(2)} ${r.currency}  ${r.detail}`));
 
   const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
   const url  = URL.createObjectURL(blob);
