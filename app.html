@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/tokens.css?v=22">
-  <link rel="stylesheet" href="css/style.css?v=35">
+  <link rel="stylesheet" href="css/style.css?v=36">
   <link rel="stylesheet" href="css/calendar.css?v=21">
   <link rel="stylesheet" href="css/charts.css?v=20">
 </head>
@@ -282,6 +282,13 @@
 
     <!-- Top Bar -->
     <header class="topbar" id="topbar">
+      <button class="mob-menu-btn" id="mob-menu-btn" aria-label="Open navigation">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
       <!-- Page-specific controls injected here by each page module -->
       <div id="topbar-left" class="flex items-center gap-3"></div>
       <div class="topbar-spacer"></div>
@@ -292,6 +299,8 @@
 
   </div><!-- /.main-area -->
 </div><!-- /.app-layout -->
+
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
 <!-- Toast container -->
 <div id="toast-container"></div>
@@ -371,6 +380,25 @@
     dropdown.classList.toggle('open');
   });
   document.addEventListener('click', () => dropdown.classList.remove('open'));
+
+  // ── Mobile sidebar toggle ────────────────────────────────────
+  const appEl      = document.getElementById('app');
+  const mobMenuBtn = document.getElementById('mob-menu-btn');
+  const sidebarEl  = document.getElementById('sidebar');
+  const backdropEl = document.getElementById('sidebar-backdrop');
+
+  function _openSidebar()  { appEl.classList.add('sidebar-open'); }
+  function _closeSidebar() { appEl.classList.remove('sidebar-open'); }
+
+  mobMenuBtn?.addEventListener('click', e => { e.stopPropagation(); _openSidebar(); });
+  backdropEl?.addEventListener('click', _closeSidebar);
+
+  // Close sidebar when any nav link is tapped on mobile
+  sidebarEl?.querySelectorAll('.nav-item').forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth <= 768) _closeSidebar();
+    });
+  });
 
   // Esc closes the topmost open modal (any .modal-backdrop). Capture phase so it runs
   // before a modal's own Esc handler (e.g. confirmModal) and only the top one closes.
