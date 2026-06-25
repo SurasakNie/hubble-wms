@@ -422,7 +422,7 @@
   });
 
   // Auto-expand SHOW MORE when navigating directly to a WMS route
-  const wmsRoutes = new Set(['#employees', '#holidays', '#requests', '#expenses', '#evaluation', '#documents']);
+  const wmsRoutes = new Set(['#employees', '#holidays', '#requests', '#expenses', '#evaluation', '#documents', '#help']);
   const currentHash = window.location.hash.split('?')[0];
   if (wmsRoutes.has(currentHash)) _setWmsExpanded(true);
 
