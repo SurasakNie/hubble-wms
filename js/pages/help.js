@@ -4,6 +4,7 @@ let _admin   = false;
 let _manager = false;
 let _client  = false;
 let _tab     = 'user';
+let _lang    = 'en';
 
 export async function render(profile) {
   _admin   = isAdmin();
@@ -11,20 +12,29 @@ export async function render(profile) {
   _client  = isClientRole();
 
   document.getElementById('topbar-left').innerHTML =
-    `<span class="topbar-title">Help / คู่มือ</span>`;
+    `<span class="topbar-title">Help</span>`;
 
   document.getElementById('content').innerHTML = `
     <div style="padding:var(--sp-4);">
-      <div class="tabs-secondary" id="help-tabs">
-        <button class="tab-btn active" data-tab="user">User Guide / คู่มือผู้ใช้</button>
-        ${_admin ? `<button class="tab-btn" data-tab="admin">Admin Guide / คู่มือผู้ดูแล</button>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:var(--sp-2);">
+        <div class="tabs-secondary" id="help-tabs">
+          <button class="tab-btn active" data-tab="user" id="help-tab-user">User Guide</button>
+          ${_admin ? `<button class="tab-btn" data-tab="admin" id="help-tab-admin">Admin Guide</button>` : ''}
+        </div>
+        <div style="display:flex;gap:2px;padding-bottom:var(--sp-1);">
+          <button class="tab-btn${_lang === 'en' ? ' active' : ''}" id="help-lang-en">EN</button>
+          <button class="tab-btn${_lang === 'th' ? ' active' : ''}" id="help-lang-th">TH</button>
+        </div>
       </div>
       <div id="help-content"></div>
     </div>
   `;
 
   _renderTab(_tab);
+  _wireEvents();
+}
 
+function _wireEvents() {
   document.querySelectorAll('#help-tabs .tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       _tab = btn.dataset.tab;
@@ -33,21 +43,33 @@ export async function render(profile) {
       _renderTab(_tab);
     });
   });
+
+  document.getElementById('help-lang-en').addEventListener('click', () => _setLang('en'));
+  document.getElementById('help-lang-th').addEventListener('click', () => _setLang('th'));
+}
+
+function _setLang(lang) {
+  _lang = lang;
+  document.getElementById('help-lang-en').classList.toggle('active', lang === 'en');
+  document.getElementById('help-lang-th').classList.toggle('active', lang === 'th');
+  const userTab = document.getElementById('help-tab-user');
+  if (userTab) userTab.textContent = lang === 'th' ? 'คู่มือผู้ใช้' : 'User Guide';
+  const adminTab = document.getElementById('help-tab-admin');
+  if (adminTab) adminTab.textContent = lang === 'th' ? 'คู่มือผู้ดูแล' : 'Admin Guide';
+  _renderTab(_tab);
 }
 
 function _item(en, th) {
   return `
     <div class="help-item" style="margin-bottom:var(--sp-3);">
-      <p style="margin:0;">${en}</p>
-      <p class="text-muted" style="margin:0;font-size:var(--font-sm);">${th}</p>
+      <p style="margin:0;">${_lang === 'th' ? th : en}</p>
     </div>`;
 }
 
 function _section(enTitle, thTitle, items) {
   return `
     <div class="section-header" style="margin-top:var(--sp-5);">
-      <span>${enTitle}</span>
-      <span class="text-muted" style="font-size:var(--font-sm);margin-left:var(--sp-2);">${thTitle}</span>
+      <span>${_lang === 'th' ? thTitle : enTitle}</span>
     </div>
     <div class="card" style="padding:var(--sp-4);">
       ${items}
