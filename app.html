@@ -719,7 +719,7 @@
   // ── Page routes ──────────────────────────────────────────────
   // Version query busts the browser cache so a hard refresh always loads the latest page JS.
   // Bump this alongside the CSS ?v= when page modules change.
-  const V = '?v=104';
+  const V = '?v=105';
   const pages = {
     '#client-portal': () => import('./js/pages/clientPortal.js' + V),
     '#tracker':   () => import('./js/pages/tracker.js'   + V),
