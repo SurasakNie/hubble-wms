@@ -384,7 +384,7 @@ async function _loadAssign(project) {
   _renderAssignBody(project, tasks, users.filter(u => u.role !== 'client'), groups);
 }
 
-function _renderAssignBody(project, tasks, users, groups) {
+function _renderAssignBody(project, tasks, users, groups, _memberSearch = '', _groupSearch = '', _activeGroupId = null) {
   const body = document.getElementById('pr-as-body');
   if (!body) return;
 
@@ -404,20 +404,86 @@ function _renderAssignBody(project, tasks, users, groups) {
       <span>${esc(label)}</span>
     </label>`;
 
-  const groupRows = groups.length
-    ? groups.map(g => row('group', g.id, g.name || '(group)', assignedGroups.has(g.id))).join('')
+  // Filter members: if a group is selected show only its members, then apply search.
+  const activeGroup = _activeGroupId ? groups.find(g => g.id === _activeGroupId) : null;
+  const memberPool = activeGroup
+    ? users.filter(u => (activeGroup.group_members || []).some(m => m.user_id === u.id))
+    : users;
+  const memberQ = _memberSearch.toLowerCase();
+  const visibleUsers = memberQ
+    ? memberPool.filter(u => (u.name || u.email || '').toLowerCase().includes(memberQ))
+    : memberPool;
+
+  // Filter groups by search.
+  const groupQ = _groupSearch.toLowerCase();
+  const visibleGroups = groupQ
+    ? groups.filter(g => (g.name || '').toLowerCase().includes(groupQ))
+    : groups;
+
+  const searchBox = (id, placeholder, value = '') => `
+    <div class="search-input" style="margin-bottom:4px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="search" id="${id}" placeholder="${placeholder}" value="${attr(value)}" style="font-size:var(--font-sm);">
+    </div>`;
+
+  const groupRows = visibleGroups.length
+    ? visibleGroups.map(g => {
+        const isActive = g.id === _activeGroupId;
+        return `<label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" class="pr-as-cb" data-kind="group" data-id="${g.id}"${assignedGroups.has(g.id) ? ' checked' : ''}>
+          <span style="flex:1;">${esc(g.name || '(group)')}</span>
+          <button type="button" class="pr-as-grp-filter btn btn-ghost" data-gid="${g.id}"
+            style="font-size:var(--font-xs); padding:2px 6px; opacity:${isActive ? '1' : '0.5'};"
+            title="${isActive ? 'Clear group filter' : 'Show only this group\'s members'}">
+            ${isActive ? '▼ members' : '▶ members'}
+          </button>
+        </label>`;
+      }).join('')
     : `<div class="text-muted" style="font-size:var(--font-xs)">No groups</div>`;
+
+  const memberLabel = activeGroup
+    ? `Members <span style="color:var(--accent); font-size:var(--font-xs);">— ${esc(activeGroup.name)}</span>`
+    : 'Members';
 
   body.innerHTML = `
     <div style="display:flex; flex-direction:column; gap:6px;">
-      <span class="text-muted" style="font-size:var(--font-xs); text-transform:uppercase; letter-spacing:0.5px;">Members</span>
-      ${users.map(u => row('user', u.id, u.name || u.email, assignedUsers.has(u.id))).join('') || '<div class="text-muted">No members</div>'}
+      <span class="text-muted" style="font-size:var(--font-xs); text-transform:uppercase; letter-spacing:0.5px;">${memberLabel}</span>
+      ${searchBox('pr-as-member-search', 'Search members…', _memberSearch)}
+      <div id="pr-as-member-list" style="display:flex; flex-direction:column; gap:6px;">
+        ${visibleUsers.map(u => row('user', u.id, u.name || u.email, assignedUsers.has(u.id))).join('') || '<div class="text-muted" style="font-size:var(--font-sm)">No members found</div>'}
+      </div>
     </div>
     <div style="display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--border); padding-top:var(--sp-3);">
       <span class="text-muted" style="font-size:var(--font-xs); text-transform:uppercase; letter-spacing:0.5px;">Groups</span>
-      ${groupRows}
+      ${searchBox('pr-as-group-search', 'Search groups…', _groupSearch)}
+      <div id="pr-as-group-list" style="display:flex; flex-direction:column; gap:6px;">
+        ${groupRows}
+      </div>
     </div>`;
 
+  // Live search — member
+  body.querySelector('#pr-as-member-search').addEventListener('input', e => {
+    _renderAssignBody(project, tasks, users, groups, e.target.value, _groupSearch, _activeGroupId);
+  });
+
+  // Live search — group
+  body.querySelector('#pr-as-group-search').addEventListener('input', e => {
+    _renderAssignBody(project, tasks, users, groups, _memberSearch, e.target.value, _activeGroupId);
+  });
+
+  // Group filter toggle buttons
+  body.querySelectorAll('.pr-as-grp-filter').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const gid = btn.dataset.gid;
+      _renderAssignBody(project, tasks, users, groups, _memberSearch, _groupSearch,
+        gid === _activeGroupId ? null : gid);
+    });
+  });
+
+  // Checkbox assign / unassign
   body.querySelectorAll('.pr-as-cb').forEach(cb => {
     cb.addEventListener('change', async () => {
       cb.disabled = true;
@@ -437,8 +503,7 @@ function _renderAssignBody(project, tasks, users, groups) {
         }
         // Refresh from the server so checkbox state stays accurate.
         const fresh = await getTasks(project.id);
-        _renderAssignBody(project, fresh,
-          users, groups);
+        _renderAssignBody(project, fresh, users, groups, _memberSearch, _groupSearch, _activeGroupId);
         window.showToast?.(on ? 'Assigned' : 'Removed', 'success');
       } catch (err) {
         window.showToast?.(err.message, 'error');
