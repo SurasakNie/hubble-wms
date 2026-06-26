@@ -607,7 +607,12 @@ td.col-actions {
 }
 
 .search-input input {
-  padding-left: 30px;
+  /* Full shorthand + !important: the global input denylist rule (the long
+     :not() chain) has very high specificity and its `padding: 8px 10px`
+     shorthand would otherwise clobber a left-only override, dropping the
+     icon gutter so the placeholder overlaps the search icon. Always set the
+     complete padding here so the 30px icon gutter survives. */
+  padding: 8px 10px 8px 30px !important;
 }
 
 /* ══════════════════════════════════════════════════════════
