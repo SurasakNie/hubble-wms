@@ -15,6 +15,7 @@ export async function render(profile) {
     `<span class="topbar-title">Help</span>`;
 
   document.getElementById('content').innerHTML = `
+    <style>#help-content .card strong{font-weight:400;}</style>
     <div style="padding:var(--sp-4);">
       <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:var(--sp-2);">
         <div class="tabs-secondary" id="help-tabs">
@@ -69,9 +70,9 @@ function _item(en, th) {
 function _section(enTitle, thTitle, items) {
   return `
     <div class="section-header" style="margin-top:var(--sp-5);">
-      <span>${_lang === 'th' ? thTitle : enTitle}</span>
+      <span style="color:var(--accent);font-weight:600;">${_lang === 'th' ? thTitle : enTitle}</span>
     </div>
-    <div class="card" style="padding:var(--sp-4);">
+    <div class="card" style="padding:var(--sp-4);margin-top:var(--sp-3);color:var(--text-muted);">
       ${items}
     </div>`;
 }
