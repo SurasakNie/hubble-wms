@@ -239,7 +239,7 @@ function _renderTopupForm(wrap) {
           <div class="form-group"><label class="form-label">Date <span class="required">*</span></label>
             <input type="date" class="form-control" id="tu-date" value="${_today()}" style="color-scheme:dark"></div>
           <div class="form-group"><label class="form-label">Amount <span class="required">*</span></label>
-            <input type="number" class="form-control" id="tu-amt" placeholder="14000.00" min="0.01" step="0.01" value="${prefill}"></div>
+            <input type="number" class="form-control" id="tu-amt" placeholder="15000.00" min="0.01" step="0.01" value="${prefill}"></div>
           <div class="form-group"><label class="form-label">Source <span class="required">*</span></label>
             <select class="form-control" id="tu-cat"><option value="">Select…</option>${catInOpts}</select></div>
           <div class="form-group" style="flex:2"><label class="form-label">Project / Purpose <span class="required">*</span></label>
