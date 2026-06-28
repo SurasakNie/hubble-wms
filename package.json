@@ -1,0 +1,18 @@
+{
+  "name": "hubble-wms",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WMS / Interactive Timesheet — build-less vanilla ES-module app served via GitHub Pages.",
+  "scripts": {
+    "check:parse": "node scripts/check-parse.mjs",
+    "lint": "eslint .",
+    "test:e2e": "playwright test",
+    "ci": "npm run check:parse && npm run lint"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "eslint": "^9.13.0",
+    "globals": "^15.11.0"
+  }
+}

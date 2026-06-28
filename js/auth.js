@@ -75,9 +75,12 @@ export async function loadSession() {
     return null;
   }
 
+  // Explicit column list (F-08): the profile object flows to every page, so we
+  // fetch only the fields actually read across js/ + app.html (census-verified).
+  // If a new consumer needs another column, add it here.
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select('id, name, email, role, client_id, job_title, currency, date_format, time_format, duration_format, week_start, working_days, daily_capacity_hours')
     .eq('id', session.user.id)
     .single();
 

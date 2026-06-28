@@ -208,7 +208,7 @@ export async function archiveEmployee(id, status = 'resigned') {
 export async function getCompensation(employeeId) {
   const { data, error } = await supabase
     .from('employee_compensation')
-    .select('*')
+    .select('id, employee_id, national_id, passport_number, salary, hourly_rate, pay_frequency, bank_name, bank_account, bonus_equity')
     .eq('employee_id', employeeId)
     .maybeSingle();
   if (error) throw error;

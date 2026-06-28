@@ -17,3 +17,8 @@ Google Cloud/
 UI_NAMING_REFERENCE.html
 employee_id_schemes_comparison.html
 employee_id_system_v2.html
+
+# CI / tooling artifacts
+node_modules/
+test-results/
+playwright-report/
