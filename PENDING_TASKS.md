@@ -109,7 +109,7 @@
 | ID | Area | Finding | Priority |
 |----|------|---------|----------|
 | CACHE-L1 | `index.html` | `tokens.css` imported without `?v=` | 🟢 Low |
-| CONV-M1 | `js/pages/calendar.js` | Hand-rolled week nav instead of `weekNav` component | 🟡 Medium |
+| ~~CONV-M1~~ | ~~`js/pages/calendar.js`~~ | ~~Hand-rolled week nav instead of `weekNav` component~~ | ✅ Fixed R46 |
 | CONV-M2 | `js/pages/expenses.js` + `holidays.js` | `_esc()` local duplicates — use `esc()` import | 🟡 Medium |
 | CONV-M3 | `js/pages/requests.js` | Action cells use `opacity:0` hover (forbidden in CLAUDE.md) | 🟡 Medium |
 | CONV-M4 | `app.html` | `localhost:3030` hardcoded in diagnostic string | 🟢 Low |
@@ -229,6 +229,92 @@ R13-02 noted as follow-up: `OFFICE_CAT_NAMES` lock (category→project) was appl
 | Receipt file upload | URL field only for now |
 | Per-diem / OD-12 | Not built |
 | Automated 09:30 / Monday-AM summary delivery | Parked — folds into Google Sheets auto-export |
+
+---
+
+## ✅ Round 45 — Client logins UX + comprehensive audit log (2026-06-29) — cache JS `?v=109`, CSS `?v=38`
+
+> Large session. Two major deliverables: (1) client logins modal polish — copy credentials, reset pw, delete row, modal widened; (2) full audit log system built end-to-end. The `20260629_audit_log.sql` migration is the remaining user action before the audit log is live in prod. **Do-first next time:** apply `20260629_audit_log.sql` in prod Studio → verify admin logs page → then F-01 (P0) authenticated prod client RLS probe (go-live gate).
+
+### ✅ R45-01 · Client logins modal UX improvements *(2026-06-29)*
+Three additions to the admin "Manage logins" modal in `clients.js`: (1) **Copy credentials button** — after provisioning a client the modal now shows a ⧉ button that copies the client_code + temp password as formatted text; (2) **Reset pw** row action — admin can reset a provisioned client's password (calls `provision-client` Edge Fn with `action:'reset'`, shows new temp pw); (3) **Delete row action** — removes a client login (calls `provision-client` with `action:'delete'`). Modal widened from `modal-md` to `modal-lg` to accommodate the wider credential display. Fixed a cache-bust issue (client_code fetch on modal open). Cache **JS v=107→v=108**.
+**Files:** `js/pages/clients.js`, `app.html` (V bump). Commits `c8539aa` `d377065` `d9abfc5`.
+
+### ✅ R45-02 · Comprehensive audit log system *(2026-06-29)*
+End-to-end audit trail covering all admin/manager actions across the app. Components:
+- **`20260629_audit_log.sql`** — new `audit_log` table (id, entity_type, entity_id, actor_id, action, old_values, new_values, created_at); RLS owner/admin read-only; ⚠️ **NOT YET APPLIED in prod Studio** (must apply before the admin page is live).
+- **`js/api/auditLog.js`** — fire-and-forget `logAction({ entityType, entityId, action, oldValues, newValues })` helper (best-effort, errors logged but not surfaced to UI).
+- **`js/pages/adminLogs.js`** — new admin-only page: entity-type filter, actor picker, date-range filter; paginated table with colour-coded action badges; uses `logAction` format.
+- **`app.html`** — `#admin-logs` added: route, nav entry (admin-only, in sidebar), `routeAllowed` guard, `wmsRoutes` (SHOW MORE auto-expand); V bumped 108→109.
+- **`employees.js`** — new History tab reads `employee_audit_log` (own record for employees; full log for admin); `logAction` wired on provision/reset-pw/clear-2FA/deactivate/reactivate.
+- **`clients.js`** — `logAction` on: create/update/archive/restore/delete client + provision-login/reset-login-pw/delete-login.
+- **`holidays-approvals.js`** — `logAction` on approve/reject leave request + flex swap.
+- **`expenses-approvals.js`** — `logAction` on approve/reject expense/claim/trip + settlement.
+- **`requests.js`** — `logAction` on approve/reject deletion/name-change/job-title-change.
+
+Cache **JS v=108→v=109 / CSS v=35→v=38**. Commit `dc47bd7`.
+
+### 🔴 R45-03 · Remaining — F-01 (P0) still the go-live gate
+1. **Apply `20260629_audit_log.sql` in prod Studio** — `NOTIFY pgrst, 'reload schema';` after apply; verify admin logs page loads.
+2. **F-01 (P0)** — authenticated production client RLS probe (user-only: needs prod client creds + Studio). Provision a test client in prod → log in on Client tab → verify My Portal shows own-scope-only, 0 cross-client, 0 employee PII, writes denied. This is the last gate before provisioning a real external client.
+3. **Roster swap** (go-live checklist #6, RSK-0, 3 confirms) — after F-01 passes.
+
+---
+
+## ✅ Round 44 — F-05 + F-08 + F-09: atomic RPCs + select minimization + CI (2026-06-29) — cache JS `?v=107`
+
+> Three deferred audit items from R40-09 cleared in one session. All code changes committed and pushed; no migration required in prod for F-08/F-09 (SQL-only for F-05). F-05 migration needs Studio apply before the RPC path is exercisable in prod.
+
+### ✅ R44-01 · F-05 — atomic request-review RPCs *(2026-06-29)*
+New migration `20260629_request_review_rpcs.sql` (three `SECURITY DEFINER` RPCs):
+- `approve_deletion_request(p_req_id uuid)` — atomically approves + executes the deletion
+- `approve_name_change_request(p_req_id uuid)` — approves + updates `employees.full_name` + `profiles.name`
+- `approve_job_title_change_request(p_req_id uuid)` — approves + updates `employees.job_title` + JTCR row
+
+Each function checks `get_my_role() IN ('owner','admin','manager')` inside the function (not just RLS). `requests.js` multi-step client-side approval flows replaced with `supabase.rpc(...)` calls. `jobTitleRequests.js` similarly rewired.
+**Files:** `supabase/migrations/20260629_request_review_rpcs.sql`, `js/pages/requests.js`, `js/pages/jobTitleRequests.js`. Commits `04180d7` `a81ed89`.
+
+### ✅ R44-02 · F-08 — replace `select('*')` with explicit columns *(2026-06-29)*
+- `js/auth.js` profiles fetch: was `select('*')` → now `select('id, name, role, employee_id, preferences, avatar_url')`.
+- `js/pages/employees.js` compensation fetch: was `select('*')` → explicit salary/rate columns.
+All consumers audited — no regressions; `profile` object shape unchanged (fields present in both old and new).
+**Files:** `js/auth.js`, `js/pages/employees.js`. Commit `04180d7`.
+
+### ✅ R44-03 · F-09 — ESM syntax check + assign modal improvements *(2026-06-28)*
+Added an ESM parse-check step (verify all page modules import clean); used during session verification. Projects assign modal: member + group search bars (carried forward from R43 as explicit F-09 improvement).
+**Files:** `js/pages/projects.js`. Cache **JS v=105→v=107**. Commit `04180d7`.
+
+---
+
+## ✅ Round 43 — Module splits + UX batch (2026-06-25 to 2026-06-26) — cache JS `?v=105`, CSS `?v=35`
+
+> Large refactor + polish session. Both monolithic files split into focused sub-modules. Projects assign modal gained search/filter. Multiple mobile + UX fixes shipped. All changes committed and pushed; prod serves v=105.
+
+### ✅ R43-01 · expenses.js code split *(2026-06-25)*
+Monolithic `expenses.js` (2,323 lines) split into 5 focused modules: `js/pages/expenses-state.js` (shared state, constants, helpers), `js/pages/expenses-forms.js` (MY EXPENSES tab + submit flow), `js/pages/expenses-approvals.js` (APPROVALS tab), `js/pages/expenses-approvals-modal.js` (approval modal), `js/pages/expenses.js` (coordinator, imports + re-exports). Each module passes ESM `node --check`.
+**Files:** `js/pages/expenses*.js`. Commits `51af2d1` `93001cd`.
+
+### ✅ R43-02 · holidays.js code split *(2026-06-25)*
+Same pattern: `holidays-state.js` / `holidays-forms.js` / `holidays-approvals.js` / `holidays-approvals-modal.js` / `holidays.js` coordinator. 2,308-line file split into 5 modules, each parse-clean.
+**Files:** `js/pages/holidays*.js`. Commits `39d1ac6` `7d54597`.
+
+### ✅ R43-03 · Help page polish *(2026-06-25 to 2026-06-26)*
+- **EN/TH language toggle** — button in the Help page header switches all static content between English and Thai (`6d1feaa`).
+- **Section headers highlighted** — `<h3>` within help cards now use accent colour for better scannability.
+- **Card text muted** — non-header body text uses `--text-secondary` for lower visual weight.
+**Files:** `js/pages/help.js`. Commits `6d1feaa` `ae6ab3e`.
+
+### ✅ R43-04 · Projects assign modal: search + filter + select-all *(2026-06-26)*
+The assign-members modal in Projects now has: **member search bar** (filters by name/ID), **group filter** dropdown (narrows the member list to one department/group), **select-all** buttons for both member and group sections. Cache **JS v=102→v=105** (first bump this session). Fixed the search-icon/placeholder overlap caused by the high-specificity input rule (must use full `padding` shorthand, not `padding-left` alone — rule documented in CLAUDE.md).
+**Files:** `js/pages/projects.js`, `app.html` (V bump). Commits `9db1efc` `d893061` `f31f184`.
+
+### ✅ R43-05 · Mobile + polish fixes *(2026-06-26)*
+- Mobile sidebar overlay fix (tap-outside closes drawer) — `app.html` (`6d1feaa` part).
+- Avatar/user row pinned to bottom of mobile sidebar drawer (`0e1895f`).
+- Apostrophe escape in petty cash error string (`e4419fc`).
+- Petty cash top-up placeholder updated to ฿15,000 (`aa9ba44`).
+- Sidebar footer sticky on all viewports — `position: sticky; bottom: 0` + backdrop (`450538b`).
+**Files:** `app.html`, `js/pages/expenses.js`.
 
 ---
 

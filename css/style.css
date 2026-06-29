@@ -844,6 +844,10 @@ td.col-actions {
 /* ══════════════════════════════════════════════════════════
    WEEK NAVIGATION (shared by Timesheet, Calendar, Dashboard)
    ══════════════════════════════════════════════════════════ */
+
+/* Calendar toolbar: flex row so weekNav div + view-toggle + zoom sit side-by-side */
+.cal-toolbar { display: flex; align-items: center; gap: var(--sp-2); }
+
 .week-nav {
   display: flex;
   align-items: center;
