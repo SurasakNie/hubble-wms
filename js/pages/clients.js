@@ -468,6 +468,7 @@ async function _openLoginsModal(client) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Provision failed');
 
+      const credText = `Client ID: ${data.client_code || '—'}\nEmail: ${email}\nTemporary password: ${data.temp_password || ''}`;
       resultEl.innerHTML = `
         <div class="card" style="background:#1e2329;">
           <div style="font-weight:500; margin-bottom:4px;">Login created</div>
@@ -475,7 +476,12 @@ async function _openLoginsModal(client) {
           <div style="font-size:13px;">Email: ${esc(email)}</div>
           <div style="font-size:13px;">Temporary password: <strong>${esc(data.temp_password || '')}</strong></div>
           <div class="text-muted" style="font-size:12px; margin-top:6px;">Copy these now — the password is shown only once.</div>
+          <button class="btn btn-ghost btn-sm" id="cl-lg-copy-cred" style="margin-top:6px;">Copy credentials</button>
         </div>`;
+      mount.querySelector('#cl-lg-copy-cred').onclick = () => {
+        navigator.clipboard.writeText(credText);
+        window.showToast?.('Credentials copied', 'success');
+      };
       mount.querySelector('#cl-lg-name').value = '';
       mount.querySelector('#cl-lg-email').value = '';
       refreshList();
