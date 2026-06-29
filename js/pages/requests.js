@@ -454,21 +454,14 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
     btn.addEventListener('click', async () => {
       const id         = btn.dataset.delApprove;
       const entityType = btn.dataset.entityType;
-      const entityId   = btn.dataset.entityId;
       const entityName = btn.dataset.entityName;
       if (!await confirmModal({ title: 'Delete', message: `Permanently delete ${entityType} "${entityName}"? This cannot be undone.`, confirmText: 'Delete', danger: true })) return;
       btn.disabled = true; btn.textContent = '…';
       try {
-        const tableMap = { client: 'clients', project: 'projects', task: 'tasks' };
-        const tbl = tableMap[entityType];
-        if (tbl) {
-          const { error: delErr } = await supabase.from(tbl).delete().eq('id', entityId);
-          if (delErr) throw delErr;
-        }
-        const { error: updErr } = await supabase.from('deletion_requests')
-          .update({ status: 'approved', reviewed_by: _profile.id, updated_at: new Date().toISOString() })
-          .eq('id', id);
-        if (updErr) throw updErr;
+        // Atomic RPC deletes the entity AND marks the request approved in one
+        // transaction — no orphaned "entity gone but request still pending" state.
+        const { error } = await supabase.rpc('approve_deletion_request', { p_request_id: id });
+        if (error) throw error;
         window.showToast?.(`${entityType} "${entityName}" deleted`, 'success');
         await _refreshBadge();
         await _load();
@@ -505,15 +498,12 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
   document.querySelectorAll('[data-ncr-approve]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id      = btn.dataset.ncrApprove;
-      const uid     = btn.dataset.ncrUid;
       const newName = btn.dataset.ncrName;
       btn.disabled = true; btn.textContent = '…';
       try {
+        // Atomic RPC updates profile name + employees.full_name + status together.
         await reviewNameChangeRequest(id, true);
-        // Sync employees.full_name (best-effort; request is already approved at this point)
-        const { error: syncErr } = await supabase.from('employees').update({ full_name: newName }).eq('user_id', uid);
-        if (syncErr) window.showToast?.('Name approved — employee record sync failed (retry from Employee page)', 'warning');
-        else         window.showToast?.(`Name updated to "${newName}"`, 'success');
+        window.showToast?.(`Name updated to "${newName}"`, 'success');
         await _refreshBadge();
         await _load();
       } catch (err) {

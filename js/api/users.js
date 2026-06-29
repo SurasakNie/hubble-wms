@@ -160,43 +160,19 @@ export async function getPendingNameChangeRequests() {
 }
 
 /**
- * Admin: approve or reject a name-change request.
- * On approval, also updates profiles.name for the requester.
- * Returns { requested_name, requested_by } for the caller to update local state.
+ * Admin: approve or reject a name-change request (F-05 atomic RPC).
+ * On approval the RPC updates profiles.name AND employees.full_name AND the
+ * request status in ONE transaction — no partial/half-applied state, and the
+ * employee record sync no longer needs a separate best-effort write at the
+ * call site. See f05_request_review_rpcs.sql → review_name_change_request.
  */
 export async function reviewNameChangeRequest(id, approved, note = '') {
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // Fetch the request first (need requested_name + requested_by for approval)
-  const { data: req, error: fetchErr } = await supabase
-    .from('name_change_requests')
-    .select('requested_name, requested_by')
-    .eq('id', id).single();
-  if (fetchErr) throw fetchErr;
-
-  // On approval: write the new name FIRST. If this fails, the request stays
-  // pending (safely retryable) rather than showing "approved" with no name change.
-  if (approved) {
-    const { error: nameErr } = await supabase
-      .from('profiles')
-      .update({ name: req.requested_name })
-      .eq('id', req.requested_by);
-    if (nameErr) throw nameErr;
-  }
-
-  // Then mark approved / rejected (stamp the decision time for the time-bound banner)
-  const { error: updateErr } = await supabase
-    .from('name_change_requests')
-    .update({
-      status: approved ? 'approved' : 'rejected',
-      reviewed_by: user.id,
-      review_note: note,
-      reviewed_at: new Date().toISOString(),
-    })
-    .eq('id', id);
-  if (updateErr) throw updateErr;
-
-  return req;   // { requested_name, requested_by }
+  const { error } = await supabase.rpc('review_name_change_request', {
+    p_request_id: id,
+    p_approved:   approved,
+    p_note:       note || null,
+  });
+  if (error) throw error;
 }
 
 // ──────────────────────────────────────────────────────────────

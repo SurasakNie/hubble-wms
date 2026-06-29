@@ -35,42 +35,15 @@ export async function getPendingJobTitleChangeRequests() {
   return data || [];
 }
 
+// reviewerId is accepted for call-site compatibility but unused: the RPC stamps
+// reviewed_by from auth.uid() server-side.
 export async function approveJobTitleChangeRequest(id, reviewerId) {
-  const { data: req, error: fetchErr } = await supabase
-    .from('job_title_change_requests')
-    .select('employee_id, requested_title, current_title')
-    .eq('id', id)
-    .single();
-  if (fetchErr) throw fetchErr;
-
-  // Capture the employee's current title so we can roll back if the second
-  // write fails (no DB transaction available from the client).
-  const { data: emp } = await supabase
-    .from('employees')
-    .select('job_title')
-    .eq('id', req.employee_id)
-    .maybeSingle();
-  const prevTitle = emp?.job_title ?? req.current_title ?? null;
-
-  const { error: empErr } = await supabase
-    .from('employees')
-    .update({ job_title: req.requested_title })
-    .eq('id', req.employee_id);
-  if (empErr) throw empErr;
-
-  const { data, error } = await supabase
-    .from('job_title_change_requests')
-    .update({ status: 'approved', reviewed_by: reviewerId, reviewed_at: new Date().toISOString() })
-    .eq('id', id)
-    .select(SELECT)
-    .single();
-  if (error) {
-    // Compensating revert: restore the previous job title so we don't leave
-    // the employee retitled while the request is still pending.
-    await supabase.from('employees').update({ job_title: prevTitle }).eq('id', req.employee_id);
-    throw error;
-  }
-  return data;
+  // F-05 atomic RPC: updates employees.job_title AND marks the request approved
+  // in one transaction. Replaces the prior fetch → update → update sequence that
+  // needed a manual compensating revert (no client-side transaction existed).
+  // See f05_request_review_rpcs.sql → approve_job_title_change_request.
+  const { error } = await supabase.rpc('approve_job_title_change_request', { p_request_id: id });
+  if (error) throw error;
 }
 
 export async function rejectJobTitleChangeRequest(id, reviewerId, note) {
