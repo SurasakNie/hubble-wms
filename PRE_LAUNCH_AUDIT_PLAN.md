@@ -235,9 +235,7 @@ Test in browser DevTools → Console for any CSP violations after adding.
 
 ## Execution order
 
-1. Team review (functional, UX feedback) — parallel to audit prep
-2. Phase 5 triage items fixed (F-05, CONV-M4, L-CSP)
-3. Phase 1 security re-audit
-4. Phase 2–4 functional + UI walkthrough
-5. Phase 3 data integrity queries
-6. Sign-off → **Roster Swap (RSK-0)**
+1. Phase 5 triage items fixed (F-05, CONV-M4, L-CSP)
+2. Phases 1–4 (security re-audit, functional walkthrough, data integrity, UI/UX)
+3. Team review (functional feedback, UX)
+4. Sign-off → **Roster Swap (RSK-0)**
