@@ -59,18 +59,18 @@ The `audit_log` table must enforce `actor_id = auth.uid()` in WITH CHECK.
 A member must not be able to insert a log row with a different actor_id.
 Test: try INSERT via REST with a spoofed actor_id → expect 403.
 
-### 1H · F-05 request-review RPCs exist in prod (CRITICAL)
-main's `requests.js` + `jobTitleRequests.js` call three RPCs added in R44, but
-the migration `20260629_request_review_rpcs.sql` apply in prod is UNCONFIRMED
-(not in the CLAUDE.md applied-list; R44 note says "needs Studio apply"). If the
-RPCs are missing, approving a deletion / name-change / job-title request fails
-live. Verify in Studio:
+### 1H · F-05 request-review RPCs exist in prod — ✅ VERIFIED 2026-06-30
+main's `requests.js` + `jobTitleRequests.js` call three R44 RPCs. Confirmed all
+three present in prod (3/3) on 2026-06-30:
 ```sql
 SELECT proname FROM pg_proc
-WHERE proname IN ('approve_deletion_request','approve_name_change_request','approve_job_title_change_request');
--- Expect 3 rows. If fewer, apply 20260629_request_review_rpcs.sql in Studio.
+WHERE proname IN ('approve_deletion_request','review_name_change_request','approve_job_title_change_request');
+-- Returned 3 rows. (NOTE the name-change RPC is review_name_change_request —
+--  it takes an `approved` boolean and handles approve AND reject. The name
+--  `approve_name_change_request` never existed; earlier R44 docs were wrong.)
 ```
-Then functionally confirm via Phase 2D (approve a name-change request end-to-end).
+Regression-only at re-audit: re-run the query (expect 3) + functionally confirm
+via Phase 2D (approve a name-change request end-to-end).
 
 ---
 
@@ -199,7 +199,7 @@ Review each deferred item and decide: **fix before launch** or **accept for post
 
 | Item | Description | Recommendation |
 |------|-------------|----------------|
-| F-05 | Atomic request-review RPCs | ✅ **Code DONE in R44** (`requests.js`/`jobTitleRequests.js` already call the RPCs). ⚠️ **Verify before launch:** the migration `20260629_request_review_rpcs.sql` apply in prod is UNCONFIRMED — main's code calls these RPCs, so if not applied, approving a deletion/name-change/job-title request fails live. See Phase 1H. |
+| F-05 | Atomic request-review RPCs | ✅ **DONE (R44) + prod-VERIFIED 2026-06-30** — all 3 RPCs present in prod (`approve_deletion_request`, `review_name_change_request`, `approve_job_title_change_request`); code calls them correctly. See Phase 1H. No action. |
 | F-08 | Replace `select('*')` with field lists | ✅ **DONE in R44** (auth.js profiles + employees comp). Remaining `select('*')` sites (requests rows) → accept post-launch. |
 | F-09 | CI quality gate (ESLint, ESM parse, Playwright smoke, GitHub Action) | Partial: ESM syntax-check script added in R44. Full CI gate (ESLint/Playwright/Action) → accept post-launch: dev hygiene, not a launch blocker |
 | M-PWPOL | Dashboard min-pw-length setting (user action) | Accept post-launch: admin action, low risk |
@@ -236,11 +236,11 @@ Test in browser DevTools → Console for any CSP violations after adding.
 |-------|------|
 | 1A anon probe | 45/45 PASS |
 | 1B–1D role probes | 0 issues found |
-| 1E–1H policy/RPC checks | All policies present; F-05 RPCs exist in prod (3 rows) |
+| 1E–1H policy/RPC checks | All policies present; F-05 RPCs in prod ✅ verified 2026-06-30 (3 rows) — regression re-check only |
 | 2A–2G functional walkthrough | 0 blocking bugs |
 | 3 data integrity | All queries return 0 rows |
 | 4A–4E UI/UX | 0 dark-theme violations, 0 broken states |
-| 5 triage | F-05 RPC migration verified in prod (Phase 1H); CONV-M4 + L-CSP fixed; others explicitly deferred |
+| 5 triage | F-05 ✅ verified in prod (Phase 1H, done); CONV-M4 + L-CSP fixed; others explicitly deferred |
 
 **All phases green → roster swap may proceed.**
 
@@ -248,7 +248,7 @@ Test in browser DevTools → Console for any CSP violations after adding.
 
 ## Execution order
 
-1. Phase 5 must-fix items: CONV-M4 + L-CSP (F-05 is code-done — only its prod migration needs verifying, see Phase 1H)
+1. Phase 5 must-fix items: CONV-M4 + L-CSP (F-05 is done + prod-verified 2026-06-30 — no action)
 2. Phases 1–4 (security re-audit incl. 1H, functional walkthrough, data integrity, UI/UX)
 3. Team review (functional feedback, UX)
 4. Sign-off → **Roster Swap (RSK-0)**
