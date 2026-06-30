@@ -15,7 +15,7 @@ import {
 
 export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFlexSwaps, saveTabState }) {
   const subBtns = ['pending','schedule','history'];
-  const pendingCount = approvalRequests().filter(r => r.status === 'pending').length
+  const pendingCount = approvalRequests().filter(r => r.status === 'pending' || r.status === 'manager_approved').length
                      + approvalFlexSwaps().filter(s => s.status === 'pending').length;
   const subLabels = {
     pending: `PENDING <span class="badge badge-pending" id="ap-pending-badge" style="margin-left:4px;${pendingCount > 0 ? '' : 'display:none;'}">${pendingCount}</span>`,
@@ -51,8 +51,9 @@ export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFl
 
   // ── PENDING ─────────────────────────────────────────────────
   function _renderApprovalPending(body) {
-    const pending  = approvalRequests().filter(r => r.status === 'pending');
-    const pendFlex = approvalFlexSwaps().filter(s => s.status === 'pending');
+    const pending    = approvalRequests().filter(r => r.status === 'pending');
+    const awaitingHr = approvalRequests().filter(r => r.status === 'manager_approved');
+    const pendFlex   = approvalFlexSwaps().filter(s => s.status === 'pending');
 
     body.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:32px;">
@@ -79,7 +80,7 @@ export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFl
                        <td>${r.is_cross_type_deduction ? '<span class="badge badge-pending">Yes</span>' : '—'}</td>
                        <td class="table-actions">
                          ${S.admin ? `<button class="btn btn-sm btn-ghost hl-edit-req" data-id="${attr(r.id)}">Edit</button>` : ''}
-                         <button class="btn btn-sm btn-primary hl-approve-req" data-id="${attr(r.id)}">Approve</button>
+                         <button class="btn btn-sm btn-primary hl-approve-req" data-id="${attr(r.id)}" data-tiers="${attr(String(r.leave_type?.approval_tiers ?? 1))}">Approve</button>
                          <button class="btn btn-sm btn-danger hl-reject-req" data-id="${attr(r.id)}">Reject</button>
                        </td>
                      </tr>`).join('')}
@@ -88,6 +89,35 @@ export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFl
                </div>`
           }
         </div>
+        ${awaitingHr.length > 0 ? `
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-muted);letter-spacing:.06em;margin-bottom:12px;">
+            AWAITING HR APPROVAL <span class="badge badge-pending">${awaitingHr.length}</span>
+            <span style="font-size:11px;font-weight:400;margin-left:8px;">Manager has approved — HR second-tier sign-off required</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead><tr>
+                <th>Employee</th><th>Type</th><th>From</th><th>To</th>
+                <th>Duration</th><th>Manager approved</th><th style="width:200px"></th>
+              </tr></thead>
+              <tbody>
+                ${awaitingHr.map(r => `<tr data-id="${attr(r.id)}">
+                  <td>${esc(r.employee?.full_name || '—')}</td>
+                  <td>${esc(r.leave_type?.label || r.leave_type_code)}</td>
+                  <td>${_fmt(r.start_date)}</td>
+                  <td>${_fmt(r.end_date)}</td>
+                  <td>${r.duration_hours ? r.duration_hours + 'h' : r.granularity.replace('_',' ')}</td>
+                  <td>${_fmt(r.manager_approved_at?.slice(0,10))}</td>
+                  <td class="table-actions">
+                    <button class="btn btn-sm btn-primary hl-hr-approve-req" data-id="${attr(r.id)}">HR Approve</button>
+                    <button class="btn btn-sm btn-danger hl-reject-req" data-id="${attr(r.id)}">Reject</button>
+                  </td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>` : ''}
         <div>
           <div style="font-size:13px;font-weight:600;color:var(--text-muted);letter-spacing:.06em;margin-bottom:12px;">
             PENDING FLEX SWAPS ${pendFlex.length > 0 ? `<span class="badge badge-pending">${pendFlex.length}</span>` : ''}
@@ -126,14 +156,33 @@ export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFl
 
     body.querySelectorAll('.hl-approve-req').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        const tiers = parseInt(btn.dataset.tiers ?? '1', 10) || 1;
         try {
-          const updated = await approveLeaveRequest(btn.dataset.id, S.myEmployee?.id, null);
+          const updated = await approveLeaveRequest(btn.dataset.id, S.myEmployee?.id, null, tiers);
           S.requests = S.requests.map(r => r.id === updated.id ? updated : r);
-          window.showToast?.('Request approved — employee will be notified.', 'success');
-          logAction('approve_leave_request', 'leave_request', btn.dataset.id, updated.employee?.full_name || null, { status: { old: 'pending', new: 'approved' } });
+          const newStatus = tiers >= 2 ? 'manager_approved' : 'approved';
+          window.showToast?.(tiers >= 2 ? 'Request manager-approved — awaiting HR sign-off.' : 'Request approved — employee will be notified.', 'success');
+          logAction('approve_leave_request', 'leave_request', btn.dataset.id, updated.employee?.full_name || null, { status: { old: 'pending', new: newStatus } });
           _renderApprovalPending(body);
           syncBadges?.();
-        } catch (err) { window.showToast?.(err.message, 'error'); }
+        } catch (err) { btn.disabled = false; window.showToast?.(err.message, 'error'); }
+      });
+    });
+
+    body.querySelectorAll('.hl-hr-approve-req').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        try {
+          const updated = await hrApproveLeaveRequest(btn.dataset.id, S.myEmployee?.id, null);
+          S.requests = S.requests.map(r => r.id === updated.id ? updated : r);
+          window.showToast?.('HR approval granted — employee will be notified.', 'success');
+          logAction('hr_approve_leave_request', 'leave_request', btn.dataset.id, updated.employee?.full_name || null, { status: { old: 'manager_approved', new: 'approved' } });
+          _renderApprovalPending(body);
+          syncBadges?.();
+        } catch (err) { btn.disabled = false; window.showToast?.(err.message, 'error'); }
       });
     });
 
@@ -160,6 +209,8 @@ export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFl
 
     body.querySelectorAll('.hl-approve-flex').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
         try {
           const updated = await approveFlexSwap(btn.dataset.id, S.myEmployee?.id, null);
           S.flexSwaps = S.flexSwaps.map(s => s.id === updated.id ? updated : s);
@@ -167,7 +218,7 @@ export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFl
           logAction('approve_flex_swap', 'flex_swap', btn.dataset.id, updated.employee?.full_name || null, { status: { old: 'pending', new: 'approved' } });
           _renderApprovalPending(body);
           syncBadges?.();
-        } catch (err) { window.showToast?.(err.message, 'error'); }
+        } catch (err) { btn.disabled = false; window.showToast?.(err.message, 'error'); }
       });
     });
 
@@ -647,10 +698,11 @@ function _openLeaveEditModal(req, onSave) {
   document.getElementById('hle-save-approve')?.addEventListener('click', async () => {
     const approveBtn = document.getElementById('hle-save-approve');
     approveBtn.disabled = true;
+    const tiers = req.leave_type?.approval_tiers ?? 1;
     try {
       await _doSaveLeave();
-      await approveLeaveRequest(req.id, S.myEmployee?.id ?? null, null);
-      window.showToast?.('Saved & Approved.', 'success');
+      await approveLeaveRequest(req.id, S.myEmployee?.id ?? null, null, tiers);
+      window.showToast?.(tiers >= 2 ? 'Saved & manager-approved — awaiting HR.' : 'Saved & Approved.', 'success');
       close();
       onSave?.();
     } catch (err) {

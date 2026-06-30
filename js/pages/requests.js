@@ -80,9 +80,10 @@ function _wireDismiss() {
   });
 }
 
-let _profile    = null;
-let _myEmployee = null;
-let _adminTab   = 'deletion';  // 'deletion' | 'profile' | 'leave' — admin Notifications tabs
+let _profile       = null;
+let _myEmployee    = null;
+let _adminTab      = 'deletion';  // 'deletion' | 'profile' | 'leave' — admin Notifications tabs
+let _profileSubTab = 'name';      // 'name' | 'jobtitle' — sub-tabs inside PROFILE CHANGES panel
 
 export async function render(profile) {
   _profile = profile;
@@ -346,7 +347,7 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
       <div class="tabs">
         <button class="tab-btn${_adminTab === 'deletion' ? ' active' : ''}" data-atab="deletion">DELETION${delReqs.length ? ` <span class="badge badge-pending" style="margin-left:4px;">${delReqs.length}</span>` : ''}</button>
         <button class="tab-btn${_adminTab === 'profile' ? ' active' : ''}" data-atab="profile">PROFILE CHANGES${(ncrReqs.length + jtcReqs.length) ? ` <span class="badge badge-pending" style="margin-left:4px;">${ncrReqs.length + jtcReqs.length}</span>` : ''}</button>
-        <button class="tab-btn${_adminTab === 'leave' ? ' active' : ''}" data-atab="leave">LEAVE REQUESTS <span class="badge" style="margin-left:4px;">${leaveReqs.length}</span></button>
+        <button class="tab-btn${_adminTab === 'leave' ? ' active' : ''}" data-atab="leave">LEAVE REQUESTS${leaveReqs.filter(r => r.status === 'pending').length ? ` <span class="badge badge-pending" style="margin-left:4px;">${leaveReqs.filter(r => r.status === 'pending').length}</span>` : ''}</button>
       </div>
 
       <div class="tab-panel${_adminTab === 'deletion' ? ' active' : ''}" data-apanel="deletion">
@@ -381,56 +382,56 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
       </div>
 
       <div class="tab-panel${_adminTab === 'profile' ? ' active' : ''}" data-apanel="profile">
-        <div style="margin-bottom:32px;">
-        <div style="font-size:13px;font-weight:600;color:var(--text-muted);letter-spacing:.06em;margin-bottom:12px;">
-          NAME CHANGES
-          ${ncrReqs.length > 0 ? `<span class="badge badge-pending" style="margin-left:8px;">${ncrReqs.length}</span>` : ''}
+        <div class="tabs" id="rq-profile-subtabs" style="margin-bottom:16px;">
+          <button class="tab-btn${_profileSubTab === 'name' ? ' active' : ''}" data-psub="name">
+            NAME CHANGES${ncrReqs.length > 0 ? ` <span class="badge badge-pending" style="margin-left:4px;">${ncrReqs.length}</span>` : ''}
+          </button>
+          <button class="tab-btn${_profileSubTab === 'jobtitle' ? ' active' : ''}" data-psub="jobtitle">
+            JOB TITLE CHANGES${jtcReqs.length > 0 ? ` <span class="badge badge-pending" style="margin-left:4px;">${jtcReqs.length}</span>` : ''}
+          </button>
         </div>
-        ${ncrReqs.length === 0
-          ? `<div style="color:var(--text-muted);padding:8px 0;">No pending name change requests.</div>`
-          : `<table class="data-table">
-              <thead><tr><th>Date</th><th>Requested by</th><th>Requested name</th><th>Reason</th><th></th></tr></thead>
-              <tbody>
-                ${ncrReqs.map(r => `<tr>
-                  <td style="white-space:nowrap;">${_fmt(r.created_at)}</td>
-                  <td>${esc(r.requester?.name || r.requester?.email || '—')}</td>
-                  <td><strong>${esc(r.requested_name)}</strong></td>
-                  <td style="max-width:200px;word-break:break-word;">${esc(r.reason || '—')}</td>
-                  <td style="white-space:nowrap;">
-                    <button class="btn btn-sm btn-primary"
-                      data-ncr-approve="${attr(r.id)}"
-                      data-ncr-uid="${attr(r.requested_by)}"
-                      data-ncr-name="${attr(r.requested_name)}">Approve</button>
-                    <button class="btn btn-sm" data-ncr-reject="${attr(r.id)}" style="margin-left:6px;">Reject</button>
-                  </td>
-                </tr>`).join('')}
-              </tbody>
-            </table>`}
+        <div id="rq-profile-subpanel-name"${_profileSubTab !== 'name' ? ' style="display:none"' : ''}>
+          ${ncrReqs.length === 0
+            ? `<div style="color:var(--text-muted);padding:8px 0;">No pending name change requests.</div>`
+            : `<table class="data-table">
+                <thead><tr><th>Date</th><th>Requested by</th><th>Requested name</th><th>Reason</th><th></th></tr></thead>
+                <tbody>
+                  ${ncrReqs.map(r => `<tr>
+                    <td style="white-space:nowrap;">${_fmt(r.created_at)}</td>
+                    <td>${esc(r.requester?.name || r.requester?.email || '—')}</td>
+                    <td><strong>${esc(r.requested_name)}</strong></td>
+                    <td style="max-width:200px;word-break:break-word;">${esc(r.reason || '—')}</td>
+                    <td style="white-space:nowrap;">
+                      <button class="btn btn-sm btn-primary"
+                        data-ncr-approve="${attr(r.id)}"
+                        data-ncr-uid="${attr(r.requested_by)}"
+                        data-ncr-name="${attr(r.requested_name)}">Approve</button>
+                      <button class="btn btn-sm" data-ncr-reject="${attr(r.id)}" style="margin-left:6px;">Reject</button>
+                    </td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>`}
         </div>
-        <div>
-        <div style="font-size:13px;font-weight:600;color:var(--text-muted);letter-spacing:.06em;margin-bottom:12px;">
-          JOB TITLE CHANGES
-          ${jtcReqs.length > 0 ? `<span class="badge badge-pending" style="margin-left:8px;">${jtcReqs.length}</span>` : ''}
-        </div>
-        ${jtcReqs.length === 0
-          ? `<div style="color:var(--text-muted);padding:8px 0;">No pending job title change requests.</div>`
-          : `<table class="data-table">
-              <thead><tr><th>Date</th><th>Employee</th><th>Current title</th><th>Requested title</th><th>Reason</th><th></th></tr></thead>
-              <tbody>
-                ${jtcReqs.map(r => `<tr>
-                  <td style="white-space:nowrap;">${_fmt(r.created_at)}</td>
-                  <td>${esc(r.employee?.full_name || r.requester?.name || '—')}</td>
-                  <td>${esc(r.current_title || '—')}</td>
-                  <td><strong>${esc(r.requested_title)}</strong></td>
-                  <td style="max-width:200px;word-break:break-word;">${esc(r.reason || '—')}</td>
-                  <td style="white-space:nowrap;">
-                    <button class="btn btn-sm btn-primary"
-                      data-jtcr-approve="${attr(r.id)}">Approve</button>
-                    <button class="btn btn-sm" data-jtcr-reject="${attr(r.id)}" style="margin-left:6px;">Reject</button>
-                  </td>
-                </tr>`).join('')}
-              </tbody>
-            </table>`}
+        <div id="rq-profile-subpanel-jobtitle"${_profileSubTab !== 'jobtitle' ? ' style="display:none"' : ''}>
+          ${jtcReqs.length === 0
+            ? `<div style="color:var(--text-muted);padding:8px 0;">No pending job title change requests.</div>`
+            : `<table class="data-table">
+                <thead><tr><th>Date</th><th>Employee</th><th>Current title</th><th>Requested title</th><th>Reason</th><th></th></tr></thead>
+                <tbody>
+                  ${jtcReqs.map(r => `<tr>
+                    <td style="white-space:nowrap;">${_fmt(r.created_at)}</td>
+                    <td>${esc(r.employee?.full_name || r.requester?.name || '—')}</td>
+                    <td>${esc(r.current_title || '—')}</td>
+                    <td><strong>${esc(r.requested_title)}</strong></td>
+                    <td style="max-width:200px;word-break:break-word;">${esc(r.reason || '—')}</td>
+                    <td style="white-space:nowrap;">
+                      <button class="btn btn-sm btn-primary"
+                        data-jtcr-approve="${attr(r.id)}">Approve</button>
+                      <button class="btn btn-sm" data-jtcr-reject="${attr(r.id)}" style="margin-left:6px;">Reject</button>
+                    </td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>`}
         </div>
       </div>
 
@@ -447,6 +448,16 @@ function _render(delReqs, ncrReqs, entityMap, leaveReqs, jtcReqs, ownOnly, ownNo
       _adminTab = btn.dataset.atab;
       document.querySelectorAll('[data-atab]').forEach(b => b.classList.toggle('active', b.dataset.atab === _adminTab));
       document.querySelectorAll('[data-apanel]').forEach(p => p.classList.toggle('active', p.dataset.apanel === _adminTab));
+    });
+  });
+
+  // Profile sub-tab switching (NAME CHANGES | JOB TITLE CHANGES)
+  document.querySelectorAll('[data-psub]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _profileSubTab = btn.dataset.psub;
+      document.querySelectorAll('[data-psub]').forEach(b => b.classList.toggle('active', b.dataset.psub === _profileSubTab));
+      document.getElementById('rq-profile-subpanel-name').style.display     = _profileSubTab === 'name'     ? '' : 'none';
+      document.getElementById('rq-profile-subpanel-jobtitle').style.display = _profileSubTab === 'jobtitle' ? '' : 'none';
     });
   });
 

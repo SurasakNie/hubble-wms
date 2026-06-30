@@ -1,6 +1,6 @@
 // js/pages/holidays-state.js — Shared mutable state + pure helpers for the holidays module
 
-import { toISODate } from '../format.js';
+import { toISODate, esc } from '../format.js';
 
 // ── Mutable shared state ──────────────────────────────────────
 
@@ -140,10 +140,11 @@ export function _datePlusDays(dateStr, n) {
 // ── Status badge map (used by multiple sub-modules) ───────────
 
 export const STATUS_BADGE = {
-  pending:   'badge badge-pending',
-  approved:  'badge badge-approved',
-  rejected:  'badge badge-rejected',
-  cancelled: 'badge',
+  pending:          'badge badge-pending',
+  manager_approved: 'badge badge-pending',
+  approved:         'badge badge-approved',
+  rejected:         'badge badge-rejected',
+  cancelled:        'badge',
 };
 
 // ── Balance cards (used by both MY LEAVE balance tab and team balance tab) ─
@@ -167,7 +168,7 @@ export function _balCards(rows) {
       return `<div style="background:var(--surface-2,var(--bg-card));border:1px solid var(--border-color,var(--border));
           border-radius:8px;padding:16px 20px;min-width:160px;flex:1;display:flex;flex-direction:column;gap:6px;">
         <div style="font-size:12px;color:var(--text-muted);font-weight:500;letter-spacing:.04em;">
-          ${_escHtml(label)}
+          ${esc(label)}
         </div>
         <div style="font-size:28px;font-weight:700;line-height:1;${low ? 'color:var(--color-danger,#e53e3e)' : ''}">
           ${avail.toFixed(1)}
@@ -184,11 +185,3 @@ export function _balCards(rows) {
   </div>`;
 }
 
-// Inline esc for _balCards (avoids circular dep on format.js in this helper)
-function _escHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}

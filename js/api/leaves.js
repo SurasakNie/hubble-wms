@@ -175,11 +175,12 @@ export async function submitLeaveRequest({
   return data;
 }
 
-export async function approveLeaveRequest(id, managerEmployeeId, notes) {
+export async function approveLeaveRequest(id, managerEmployeeId, notes, approvalTiers = 1) {
+  const newStatus = (approvalTiers >= 2) ? 'manager_approved' : 'approved';
   const { data, error } = await supabase
     .from('leave_requests')
     .update({
-      status:               'approved',
+      status:               newStatus,
       manager_id:           managerEmployeeId,
       manager_approved_at:  new Date().toISOString(),
       manager_notes:        notes || null,

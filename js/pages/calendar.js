@@ -5,10 +5,11 @@
 import { getEntries, updateEntryTimes, updateEntry } from '../api/timeEntries.js';
 import { openCreateModal, openEditModal } from '../components/entryModal.js';
 import { isClientRole, isAdmin, isManager } from '../auth.js';
-import { toISODate, formatDuration, getMondayOf, formatWeekRange, getISOWeek, safeColor, esc, attr } from '../format.js';
+import { toISODate, formatDuration, getMondayOf, safeColor, esc } from '../format.js';
 import { getEmployees } from '../api/employees.js';
 import { empSelectHtml, wireEmpSelect } from '../components/empSelect.js';
 import { getPublicHolidays } from '../api/holidays.js';
+import { weekNavHtml, wireWeekNav, updateWeekNavLabel } from '../components/weekNav.js';
 
 const FC_CDN = 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js';
 
@@ -75,21 +76,15 @@ export async function render(profile) {
   // re-layout (the zoom buttons live in the external toolbar so the re-render can't wipe them).
   content.innerHTML = `
     <div class="cal-toolbar">
-      <div class="week-nav">
-        <button class="week-nav-btn" id="cal-prev" title="Previous week">‹</button>
-        <span class="week-nav-label" id="cal-week-label" title="Pick a week" style="cursor:pointer;">${formatWeekRange(getMondayOf())}</span>
-        <input type="date" id="cal-week-picker" aria-label="Pick a week" style="width:0; padding:0; margin:0; border:0; opacity:0;">
-        <button class="week-nav-btn" id="cal-next" title="Next week">›</button>
-        <span class="week-nav-wknum" id="cal-wk-wknum">Wk ${getISOWeek(getMondayOf())}</span>
-        <div class="cal-view-toggle" id="cal-view-toggle">
-          <button class="btn btn-ghost btn-sm" data-view="dayGridMonth">Month</button>
-          <button class="btn btn-ghost btn-sm active" data-view="timeGridWeek">Week</button>
-          <button class="btn btn-ghost btn-sm" data-view="timeGridDay">Day</button>
-        </div>
-        <div class="cal-zoom" id="cal-zoom">
-          <button class="week-nav-btn" id="fc-zoom-out" title="Zoom out">−</button>
-          <button class="week-nav-btn" id="fc-zoom-in" title="Zoom in">+</button>
-        </div>
+      ${weekNavHtml('cal', getMondayOf())}
+      <div class="cal-view-toggle" id="cal-view-toggle">
+        <button class="btn btn-ghost btn-sm" data-view="dayGridMonth">Month</button>
+        <button class="btn btn-ghost btn-sm active" data-view="timeGridWeek">Week</button>
+        <button class="btn btn-ghost btn-sm" data-view="timeGridDay">Day</button>
+      </div>
+      <div class="cal-zoom" id="cal-zoom">
+        <button class="week-nav-btn" id="fc-zoom-out" title="Zoom out">−</button>
+        <button class="week-nav-btn" id="fc-zoom-in" title="Zoom in">+</button>
       </div>
     </div>
     <div id="fc-container"></div>`;
@@ -128,19 +123,18 @@ export async function render(profile) {
     headerToolbar: false,   // custom static toolbar lives in #content (see _wireToolbar)
     // Keep the week-nav label in sync as the user navigates (also fires on initial render).
     datesSet: (info) => {
-      const lbl   = document.getElementById('cal-week-label');
       const wknum = document.getElementById('cal-wk-wknum');
-      if (!lbl) return;
       if (_calendar?.view?.type === 'dayGridMonth') {
         // info.start may be the last days of the previous month (first visible cell),
         // so use the midpoint of the visible range to reliably land in the correct month.
         const mid = new Date((info.start.valueOf() + info.end.valueOf()) / 2);
-        lbl.textContent = mid.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+        const lbl = document.getElementById('cal-wk-label');
+        if (lbl) lbl.textContent = mid.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
         if (wknum) wknum.style.display = 'none';   // no week number in month view
       } else {
         const monday = getMondayOf(info.start);
-        lbl.textContent = formatWeekRange(monday);
-        if (wknum) { wknum.textContent = `Wk ${getISOWeek(monday)}`; wknum.style.display = ''; }
+        updateWeekNavLabel('cal', monday);
+        if (wknum) wknum.style.display = '';
       }
     },
     windowResize: () => _applyZoom(),   // re-fit the 12-hour default to the new viewport
@@ -212,6 +206,11 @@ export async function render(profile) {
   });
 
   _calendar.render();
+  wireWeekNav('cal',
+    () => getMondayOf(_calendar?.view?.currentStart ?? new Date()),
+    d  => { _calendar.gotoDate(d); },
+    () => {}   // no-op: FullCalendar navigation triggers datesSet which updates the label
+  );
   _wireToolbar();
   _applyZoom();   // size slots so the default view shows ~12 h (changeView lays out aligned)
 }
@@ -222,28 +221,6 @@ export async function render(profile) {
 // ──────────────────────────────────────────────────────────────
 
 function _wireToolbar() {
-  const prev   = document.getElementById('cal-prev');
-  const next   = document.getElementById('cal-next');
-  const label  = document.getElementById('cal-week-label');
-  const picker = document.getElementById('cal-week-picker');
-
-  prev?.addEventListener('click', () => _calendar.prev());
-  next?.addEventListener('click', () => _calendar.next());
-
-  label?.addEventListener('click', () => {
-    picker.value = toISODate(getMondayOf(_calendar.view.currentStart));
-    if (typeof picker.showPicker === 'function') {
-      try { picker.showPicker(); return; } catch { /* fall through to visible input */ }
-    }
-    picker.style.opacity = '1';
-    picker.style.width = 'auto';
-    picker.focus();
-  });
-  picker?.addEventListener('change', () => {
-    if (!picker.value) return;
-    _calendar.gotoDate(getMondayOf(picker.value));   // datesSet refreshes label + events
-  });
-
   // Week/Day view toggle (changeView re-renders the grid; the persisted slot CSS keeps it sized)
   document.querySelectorAll('#cal-view-toggle [data-view]').forEach(btn => {
     btn.addEventListener('click', () => {
