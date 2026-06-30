@@ -6,7 +6,11 @@ PROJECT_AUDIT_REPORT.md
 *.log
 
 # Project tooling / archives / backend
-.claude/
+# (the wms-build skill IS tracked; the rest of .claude/ stays local)
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/wms-build/
 Archived/
 supabase/
 
