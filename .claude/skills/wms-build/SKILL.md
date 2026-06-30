@@ -50,6 +50,6 @@ These come from `CLAUDE.md` — re-check it if anything here looks stale.
 
 ## Current baseline (keep in sync via `close` mode)
 
-After **Round 45** (client logins UX + comprehensive audit log, 2026-06-29):
+After **Round 46** (wms-build skill to repo + global behavioral contract, 2026-06-30):
 working **JS `?v=109`**, **CSS `?v=38`**, **tokens.css `?v=22`**. Next session
 bumps from `v=109`. This is the single source of truth the `close` mode advances.

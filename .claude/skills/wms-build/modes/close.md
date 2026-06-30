@@ -40,7 +40,7 @@ SessionStart hook only *warns*; it never edits).
 Deploy if the session shipped app changes: commit + `git push` (no build step). Note in the
 Round entry the commit hash and whether prod was deployed / migration applied.
 
-## Current state to advance from (R45)
+## Current state to advance from (R46)
 - JS `?v=109`, CSS `?v=38`, tokens.css `?v=22`.
 - Open P0: F-01 authenticated prod client RLS probe (go-live gate).
 - Pending migration: `20260629_audit_log.sql` not yet applied in prod Studio.
