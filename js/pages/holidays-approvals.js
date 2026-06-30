@@ -156,6 +156,8 @@ export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFl
 
     body.querySelectorAll('.hl-approve-req').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
         const tiers = parseInt(btn.dataset.tiers ?? '1', 10) || 1;
         try {
           const updated = await approveLeaveRequest(btn.dataset.id, S.myEmployee?.id, null, tiers);
@@ -165,12 +167,14 @@ export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFl
           logAction('approve_leave_request', 'leave_request', btn.dataset.id, updated.employee?.full_name || null, { status: { old: 'pending', new: newStatus } });
           _renderApprovalPending(body);
           syncBadges?.();
-        } catch (err) { window.showToast?.(err.message, 'error'); }
+        } catch (err) { btn.disabled = false; window.showToast?.(err.message, 'error'); }
       });
     });
 
     body.querySelectorAll('.hl-hr-approve-req').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
         try {
           const updated = await hrApproveLeaveRequest(btn.dataset.id, S.myEmployee?.id, null);
           S.requests = S.requests.map(r => r.id === updated.id ? updated : r);
@@ -178,7 +182,7 @@ export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFl
           logAction('hr_approve_leave_request', 'leave_request', btn.dataset.id, updated.employee?.full_name || null, { status: { old: 'manager_approved', new: 'approved' } });
           _renderApprovalPending(body);
           syncBadges?.();
-        } catch (err) { window.showToast?.(err.message, 'error'); }
+        } catch (err) { btn.disabled = false; window.showToast?.(err.message, 'error'); }
       });
     });
 
@@ -205,6 +209,8 @@ export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFl
 
     body.querySelectorAll('.hl-approve-flex').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
         try {
           const updated = await approveFlexSwap(btn.dataset.id, S.myEmployee?.id, null);
           S.flexSwaps = S.flexSwaps.map(s => s.id === updated.id ? updated : s);
@@ -212,7 +218,7 @@ export function renderApprovals(wrap, { syncBadges, approvalRequests, approvalFl
           logAction('approve_flex_swap', 'flex_swap', btn.dataset.id, updated.employee?.full_name || null, { status: { old: 'pending', new: 'approved' } });
           _renderApprovalPending(body);
           syncBadges?.();
-        } catch (err) { window.showToast?.(err.message, 'error'); }
+        } catch (err) { btn.disabled = false; window.showToast?.(err.message, 'error'); }
       });
     });
 

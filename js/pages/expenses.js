@@ -27,9 +27,9 @@ export async function render(profile) {
   content.innerHTML = `<div class="page-loading">Loading…</div>`;
 
   const [cats, vehicles, projects, emp, pcSettings] = await Promise.all([
-    getCategories().catch(() => []),
-    getVehicleRates().catch(() => []),
-    getProjects().catch(() => []),
+    getCategories(),
+    getVehicleRates(),
+    getProjects(),
     supabase.from('employees').select('id, full_name, employee_id, employment_type_code').eq('user_id', profile.id).maybeSingle().then(r => r.data),
     getPettyCashSettings().catch(() => ({ monthlyTopup: 6000, ptDailyRate: 550 })),
   ]);
@@ -138,7 +138,7 @@ async function _renderMyExpenses() {
   const body = document.getElementById('exp-body');
   body.innerHTML = `<div class="page-loading">Loading…</div>`;
   let txns = [];
-  if (S.myEmployee) txns = (await getMyTransactions(S.myEmployee.id).catch(() => [])).filter(t => t.direction === 'out');
+  if (S.myEmployee) txns = (await getMyTransactions(S.myEmployee.id).catch(err => { window.showToast?.(err.message || 'Failed to load transactions', 'error'); return []; })).filter(t => t.direction === 'out');
 
   const active  = txns.filter(t => !_settled(t.status));
   const settled = txns.filter(t =>  _settled(t.status));
