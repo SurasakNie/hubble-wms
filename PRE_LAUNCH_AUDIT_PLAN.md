@@ -205,6 +205,8 @@ Review each deferred item and decide: **fix before launch** or **accept for post
 | M-PWPOL | Dashboard min-pw-length setting (user action) | Accept post-launch: admin action, low risk |
 | L-CSP | Content Security Policy header | Fix before: security header missing |
 | L-ADMCK | Admin-caller double-check in Edge Fns (belt+suspenders beyond JWT) | Accept post-launch: JWT + RLS already enforce it |
+| L-FNSP / L-SPDEV | Supabase linter security WARNs (0011 search_path, 0028 anon-executable, 0029 authenticated-executable) | ✅ **Migration written (R51): `20260709_lint_search_path_and_execute_hardening.sql` — pending Studio apply.** See L-FNSP/L-SPDEV section below for the residual-warning acceptance rationale. |
+| L-PWLEAK | 0032 leaked-password protection disabled | Accept post-launch (or on Pro): one-time Dashboard toggle, no SQL. Track with M-PWPOL. |
 | CONV-M4 | `localhost:3030` hardcoded URL in one file | ✅ **Verified resolved (R50 recheck)** — grepped `js/`, `app.html`, `index.html`: zero occurrences in shipped code; only mentions are in docs referring to the local dev preview server. No code change needed. |
 | CONV-L1/L2 | Minor convention lints | Accept post-launch |
 | MODAL-L1 | Modal pattern minor lint | Accept post-launch |
@@ -252,6 +254,35 @@ Supabase or GitHub Pages (confirmed via a hard 403 gateway policy denial), so
 post-push spot-check**: hard-refresh https://he-cells.github.io/hubble-wms/ and
 index.html, open DevTools → Console, confirm zero CSP violations, and confirm
 login + app boot + font rendering all still work.
+
+### L-FNSP / L-SPDEV — migration written (R51), pending Studio apply
+
+Migration `20260709_lint_search_path_and_execute_hardening.sql` closes the
+database-linter security WARNs. Cross-checked every function against the
+`.rpc()` calls in `js/` before deciding what to lock down:
+
+- **0011 (12 fns)** — pin `search_path = public, extensions, pg_temp`. These are
+  SECURITY **INVOKER** trigger/compute helpers (no privilege escalation
+  possible), so this is hygiene/defence-in-depth, not a high-risk hole.
+- **0028 (anon)** — the item that actually matters. Strip the default `PUBLIC`
+  + `anon` EXECUTE grant on all 27 flagged SECURITY DEFINER fns, so an
+  unauthenticated caller cannot reach a definer-rights function even if a
+  future body forgets its internal auth guard (cf. the real `get_project_stats`
+  / `get_tag_usage` anon leak fixed in `20260630_security_hardening.sql`).
+- **0029 (authenticated)** — fully revoked on the 8 trigger fns (never callable
+  as RPCs anyway; triggers don't check caller EXECUTE).
+
+**Residual warnings that are ACCEPTED / by-design (do not re-flag):** 0029 will
+still fire for the **9 real RPCs** (called from `js/` by admins/managers) and
+the **10 RLS-helper fns** (invoked inside policy `USING`/`CHECK` as the
+`authenticated` user). Both MUST keep EXECUTE for `authenticated` — revoking
+would break the app and RLS. These are intentional, not unfinished.
+
+**Apply:** run the file in Supabase Studio → SQL Editor, then run the commented
+`VERIFY` queries at the bottom (each should return 0 rows). Grants-only, no
+data/policy/schema change, idempotent, reversible. Not runnable from the Claude
+Code container (403 to prod). 0032 leaked-password protection is a separate
+Dashboard toggle (L-PWLEAK).
 
 ---
 

@@ -141,7 +141,7 @@
 > - **Verify live first (before next migration):** ✅ **M-DRIFT verified-live + CLOSED 2026-06-15 (R36)** — all 6 `20260701` WITH CHECK policies + 4 helper `search_path` + `uq_cash_txn_settlement_per_trip` confirmed live; `schema.sql` reconciled. ⚠️ Surfaced **M-REGRESS** (`20260701` §4 dropped the `20260622` owner self-cancel/settlement grants in live) → `20260702_restore_user_cancel_rls.sql` ✅ **applied + verified live 2026-06-15** (anon probe 43/43).
 > - **Next code session:** M-DATE (12 UTC-slice sites in `holidays.js`/`expenses.js`/`documents.js`) · M-JTCR (`jtcr_own` WITH CHECK split) · M-DSUB (double-submit on leave `holidays.js:1072,1278,1470`) · M-SILENT (silent catch on money fetches `expenses.js:1117,1618`) · M-BKUP (add `BYPASSRLS` to `create_backup_role.sql`).
 > - **Quiet window:** M-SETTLE + M-APPROVE (atomic RPCs) · M-PROF + M-EVR (`WITH CHECK` on profiles/evr) · M-PWPOL (server-side pw policy) · M-RATE (login rate-limit).
-> - **Post-go-live:** L-CSP (meta CSP + vendor Supabase JS) · L-ADMCK (~15 admin UPDATE policies) · L-FNSP/L-SPDEV (search_path) · L-INITYR (Initialize Year error surfacing).
+> - **Post-go-live:** L-CSP (meta CSP + vendor Supabase JS) · L-ADMCK (~15 admin UPDATE policies) · ~~L-FNSP/L-SPDEV (search_path)~~ ✅ **migration written (R51) — `20260709_lint_search_path_and_execute_hardening.sql`, pending Studio apply** · L-INITYR (Initialize Year error surfacing).
 
 ---
 
