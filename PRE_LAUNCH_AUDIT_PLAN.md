@@ -205,28 +205,53 @@ Review each deferred item and decide: **fix before launch** or **accept for post
 | M-PWPOL | Dashboard min-pw-length setting (user action) | Accept post-launch: admin action, low risk |
 | L-CSP | Content Security Policy header | Fix before: security header missing |
 | L-ADMCK | Admin-caller double-check in Edge Fns (belt+suspenders beyond JWT) | Accept post-launch: JWT + RLS already enforce it |
-| CONV-M4 | `localhost:3030` hardcoded URL in one file | Fix before: will fail silently in prod |
+| CONV-M4 | `localhost:3030` hardcoded URL in one file | ✅ **Verified resolved (R50 recheck)** — grepped `js/`, `app.html`, `index.html`: zero occurrences in shipped code; only mentions are in docs referring to the local dev preview server. No code change needed. |
 | CONV-L1/L2 | Minor convention lints | Accept post-launch |
 | MODAL-L1 | Modal pattern minor lint | Accept post-launch |
 
-### CONV-M4 — must fix before launch
-Find and fix the hardcoded `localhost:3030` before roster swap.
+### CONV-M4 — ✅ resolved, no action needed
+Re-verified 2026-07-01 (R50): no `3030` reference anywhere in `js/`, `app.html`, or `index.html`. Already resolved in a prior session (or never actually shipped) — docs were stale.
 
-### L-CSP — must fix before launch
-Add a Content Security Policy header. Since this is a GitHub Pages static site,
-CSP must be delivered via a `<meta http-equiv="Content-Security-Policy">` tag in
-`app.html` (GitHub Pages doesn't allow custom response headers).
+### L-CSP — ✅ fixed (R50)
+Added a `<meta http-equiv="Content-Security-Policy">` tag to both `app.html` and
+`index.html` (GitHub Pages doesn't allow custom response headers, so a meta tag
+is the only option for a static site).
 
-Minimum policy for this app:
+Two corrections were needed vs. the original draft below:
+1. **Missing `fonts.gstatic.com`** in `font-src` — the app loads the Inter font via
+   `fonts.googleapis.com`, which redirects to `fonts.gstatic.com` for the actual
+   glyph files. Without it, fonts would silently fail to load under the new policy.
+2. **Both files had an inline `<script type="module">` block** (`app.html:325`,
+   `index.html:327`). A bare `script-src 'self'` does not cover inline scripts —
+   pasting the original draft verbatim would have broken login and app boot
+   entirely. Fixed by **externalizing** both blocks into `js/app-init.js` and
+   `js/login-init.js` (referenced via `<script type="module" src="...">`), keeping
+   `script-src` strict with no `'unsafe-inline'` needed for scripts. `style-src`
+   still needs `'unsafe-inline'` (the app has many inline `style="..."` attributes;
+   externalizing those is out of scope here).
+
+Policy shipped in both files:
 ```
 default-src 'none';
 script-src 'self' cdn.jsdelivr.net;
 style-src 'self' 'unsafe-inline';
 connect-src https://sjkggguedgtynktymzes.supabase.co https://sjkggguedgtynktymzes.functions.supabase.co;
 img-src 'self' data:;
-font-src 'self';
+font-src 'self' https://fonts.gstatic.com;
+frame-ancestors 'none';
 ```
-Test in browser DevTools → Console for any CSP violations after adding.
+(`frame-ancestors 'none'` added beyond the original draft as low-risk clickjacking
+hardening, consistent with `default-src 'none'`.)
+
+Cache bump: `app.html`'s page-module `V` constant `113→114` (now lives in
+`js/app-init.js`); `js/login-init.js` versioned independently as `?v=1`.
+
+**⚠️ Not yet verified live** — this container has no network access to prod
+Supabase or GitHub Pages (confirmed via a hard 403 gateway policy denial), so
+"0 CSP violations in console" could not be checked from here. **Still needs a
+post-push spot-check**: hard-refresh https://he-cells.github.io/hubble-wms/ and
+index.html, open DevTools → Console, confirm zero CSP violations, and confirm
+login + app boot + font rendering all still work.
 
 ---
 
@@ -240,7 +265,7 @@ Test in browser DevTools → Console for any CSP violations after adding.
 | 2A–2G functional walkthrough | 0 blocking bugs |
 | 3 data integrity | All queries return 0 rows |
 | 4A–4E UI/UX | 0 dark-theme violations, 0 broken states |
-| 5 triage | F-05 ✅ verified in prod (Phase 1H, done); CONV-M4 + L-CSP fixed; others explicitly deferred |
+| 5 triage | F-05 ✅ verified in prod (Phase 1H, done); CONV-M4 ✅ verified resolved; L-CSP ✅ fixed (⚠️ live console check still pending — see below); others explicitly deferred |
 
 **All phases green → roster swap may proceed.**
 
@@ -248,7 +273,14 @@ Test in browser DevTools → Console for any CSP violations after adding.
 
 ## Execution order
 
-1. Phase 5 must-fix items: CONV-M4 + L-CSP (F-05 is done + prod-verified 2026-06-30 — no action)
-2. Phases 1–4 (security re-audit incl. 1H, functional walkthrough, data integrity, UI/UX)
+1. ✅ Phase 5 must-fix items: CONV-M4 (verified resolved) + L-CSP (fixed — CSP meta tag added
+   to `app.html`/`index.html`, inline scripts externalized) — **done 2026-07-01 (R50)**.
+   F-05 is done + prod-verified 2026-06-30 — no action.
+2. Phases 1–4 (security re-audit incl. 1H, functional walkthrough, data integrity, UI/UX) —
+   **⚠️ blocked from this Claude Code container**: confirmed via the environment's proxy
+   status that it gets a hard 403 policy denial reaching both prod Supabase and GitHub
+   Pages. These phases (plus the L-CSP live console check) must be run by a human with real
+   network access, or in the Supabase Studio SQL Editor. See
+   `PRE_LAUNCH_AUDIT_EXECUTION_PACKET.md` for ready-to-run commands/queries/checklists.
 3. Team review (functional feedback, UX)
 4. Sign-off → **Roster Swap (RSK-0)**
