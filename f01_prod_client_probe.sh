@@ -137,6 +137,34 @@ check_zero() {
   fi
 }
 
+# check_view_blocked LABEL VIEW  — a definer-rights view must not leak.
+# A SECURITY DEFINER view bypasses the client_block_* table RLS, so an
+# all-tenant aggregate view is a cross-tenant leak if the client can read it.
+# PASS if the endpoint 404s (view dropped / not exposed) or returns 0 rows;
+# FAIL if any rows come back. (check_zero can't be reused here: it selects
+# `id` — absent on views — and would misparse a 404 error body as rows.)
+check_view_blocked() {
+  local label="$1" view="$2"
+  local url="$SUPABASE_URL/rest/v1/$view?select=project_id&limit=1"
+  local code
+  code=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ACCESS_TOKEN" "$url")
+  if [[ "$code" == "404" ]]; then
+    ok "$label → HTTP 404 (view dropped / not exposed)"
+    return
+  fi
+  local body n
+  body=$(curl -s -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ACCESS_TOKEN" "$url")
+  n=$(echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else -1)" 2>/dev/null || echo "?")
+  if [[ "$n" == "0" ]]; then
+    ok "$label → reachable but 0 rows (RLS-scoped)"
+  elif [[ "$n" == "?" || "$n" == "-1" ]]; then
+    warn "$label → HTTP $code, response unclear (check manually)"
+  else
+    fail "$label → $n row(s) visible (SECURITY DEFINER cross-tenant LEAK)"
+  fi
+}
+
 check_own_profile() {
   local resp
   resp=$(curl -s \
@@ -215,6 +243,7 @@ check_zero "evaluation_cycles"   "evaluation_cycles"
 check_zero "evaluation_questions" "evaluation_questions"
 check_zero "evaluation_responses" "evaluation_responses"
 check_zero "login_attempts"      "login_attempts"
+check_view_blocked "client_project_totals (view)" "client_project_totals"
 
 echo ""
 echo "── 3. Expense/travel detail (own projects only) ─────────────"

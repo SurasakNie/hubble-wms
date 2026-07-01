@@ -207,6 +207,10 @@ $mustZeroTables = @(
 foreach ($table in $mustZeroTables) {
   Check-MustZero $table $table
 }
+# A SECURITY DEFINER view bypasses the client_block_* table RLS, so an
+# all-tenant aggregate view is a cross-tenant leak if the client can read it.
+# After the drop it should 404 (blocked); Check-MustZero passes on HTTP>=400.
+Check-MustZero 'client_project_totals (view)' 'client_project_totals' 'select=project_id&limit=1'
 
 Write-Host ""
 Write-Host "-- 3. Expense/travel ---------------------------------------"
