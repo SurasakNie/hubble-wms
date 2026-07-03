@@ -76,9 +76,9 @@ via Phase 2D (approve a name-change request end-to-end).
 
 ## Phase 2 — Functional walkthrough (role by role)
 
-Use the production app at https://he-cells.github.io/hubble-wms/
-(after the pending account transfer: `https://<new-account>.github.io/hubble-wms/` —
-see [REPO_TRANSFER_CHECKLIST.md](REPO_TRANSFER_CHECKLIST.md)).
+Use the production app at https://surasaknie.github.io/hubble-wms/
+(transferred from `he-cells.github.io` 2026-07-03 — see
+[REPO_TRANSFER_CHECKLIST.md](REPO_TRANSFER_CHECKLIST.md)).
 Test with the sci-fi roster accounts (before roster swap).
 
 ### 2A · Calendar & Timesheet

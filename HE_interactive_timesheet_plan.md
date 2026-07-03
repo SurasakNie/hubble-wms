@@ -5,7 +5,7 @@
 > Supersedes `HE_interactive_timesheet_plan_draft.md` (kept as a historical pre-build artifact).
 > For the most recent session narrative, see `HANDOFF_20260601.md`.
 
-**State in one line:** ✅ **Live in production** ([he-cells.github.io/hubble-wms](https://he-cells.github.io/hubble-wms) — ⚠️ account transfer pending, URL becomes `https://<new-account>.github.io/hubble-wms`, see [REPO_TRANSFER_CHECKLIST.md](REPO_TRANSFER_CHECKLIST.md)) since 2026-06-11. All Timesheet + WMS modules (M2–M6) built & deployed; the login overhaul is live (R29–R35). Remaining: closeout (Help page, template wording) → real-roster swap (LAST). See [PENDING_TASKS.md](PENDING_TASKS.md).
+**State in one line:** ✅ **Live in production** ([surasaknie.github.io/hubble-wms](https://surasaknie.github.io/hubble-wms) — transferred from `he-cells.github.io` 2026-07-03, see [REPO_TRANSFER_CHECKLIST.md](REPO_TRANSFER_CHECKLIST.md)) since 2026-06-11. All Timesheet + WMS modules (M2–M6) built & deployed; the login overhaul is live (R29–R35). Remaining: closeout (Help page, template wording) → real-roster swap (LAST). See [PENDING_TASKS.md](PENDING_TASKS.md).
 
 **Status legend (used throughout):** ✅ DONE · ⛔ STUB · ⏸ DEFERRED
 

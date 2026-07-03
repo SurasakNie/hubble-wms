@@ -6,9 +6,8 @@
 
 This is the **Hubble Engineering WMS** — a vanilla HTML/CSS/JS timesheet + workforce
 management app on a Supabase backend, deployed to GitHub Pages
-(https://he-cells.github.io/hubble-wms/, repo `HE-cells/hubble-wms` — ⚠️ an account
-transfer is pending; afterwards the app lives at
-`https://<new-account>.github.io/hubble-wms/` with no redirect from the old URL,
+(https://surasaknie.github.io/hubble-wms/, repo `SurasakNie/hubble-wms` — transferred
+from `HE-cells` 2026-07-03; the old `he-cells.github.io` URL is dead, no redirect,
 see [REPO_TRANSFER_CHECKLIST.md](REPO_TRANSFER_CHECKLIST.md)). It's gated
 for go-live behind a 5-phase pre-launch audit. I (Claude) wrote the audit plan,
 closed out Phase 5's must-fix items, and assembled everything Phases 1–4 need to
