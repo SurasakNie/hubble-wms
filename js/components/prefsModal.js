@@ -47,7 +47,7 @@ export function openPrefsModal(profile) {
             <div class="form-group">
               <label>Access role</label>
               <div style="color:var(--text-primary);padding:8px 0;">
-                ${ROLE_LABELS[profile.role] || profile.role}
+                ${esc(ROLE_LABELS[profile.role] || profile.role)}
               </div>
             </div>
           </div>

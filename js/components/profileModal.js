@@ -40,7 +40,7 @@ export async function openProfileModal(profile) {
           <div style="display:flex; align-items:center; gap:var(--sp-4); margin-bottom:var(--sp-2);">
             <div style="width:56px;height:56px;border-radius:var(--radius);background:#1565c0;
                         color:#fff;font-size:20px;font-weight:600;display:flex;align-items:center;
-                        justify-content:center;flex-shrink:0;">${initials}</div>
+                        justify-content:center;flex-shrink:0;">${esc(initials)}</div>
             <div>
               <div style="font-weight:600;font-size:var(--font-md)">${esc(profile.name) || '—'}</div>
               <div class="text-muted" style="font-size:var(--font-sm)">${esc(profile.email || '')}</div>

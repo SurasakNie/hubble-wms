@@ -441,7 +441,7 @@ function _renderEntryRow(entry) {
           ${entry.description ? esc(entry.description) : '<span class="text-muted">(no description)</span>'}
         </div>
         <div style="display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap;">
-          <span class="project-dot" style="background:${color}"></span>
+          <span class="project-dot" style="background:${safeColor(color)}"></span>
           <span class="text-muted" style="font-size:var(--font-xs)">${label}</span>
           ${tags}
           ${entry.is_billable ? '<span style="color:var(--accent);font-size:11px;font-weight:600">$</span>' : ''}

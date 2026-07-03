@@ -239,7 +239,7 @@ export async function getWeekMatrix(monday) {
 export async function copyLastWeek(thisMonday) {
   const lastMonday = new Date(thisMonday + 'T00:00:00');
   lastMonday.setDate(lastMonday.getDate() - 7);
-  const lastMon = lastMonday.toISOString().split('T')[0];
+  const lastMon = toISODate(lastMonday);
 
   const lastWeekEntries = await getWeekEntries(lastMon);
   const { data: { user } } = await supabase.auth.getUser();
@@ -252,7 +252,7 @@ export async function copyLastWeek(thisMonday) {
       user_id:     user.id,
       project_id:  e.project_id,
       task_id:     e.task_id,
-      date:        d.toISOString().split('T')[0],
+      date:        toISODate(d),
       start_time:  e.start_time,
       end_time:    e.end_time,
       total_hours: e.start_time ? null : e.total_hours,

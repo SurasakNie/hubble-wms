@@ -1,7 +1,7 @@
 // pages/expenses-travel.js — MY TRAVEL tab (mileage + trip request + settlement)
 
 import { S, _fmt, _money, _badge, _settled, _today, _isWeekend, _nextWeekday, _curOpts, _projOptions, _projOptionsReq, _wireCurrencyConvert } from './expenses-state.js';
-import { esc, toISODate, todayISO } from '../format.js';
+import { esc, attr, toISODate, todayISO } from '../format.js';
 import {
   getMyTravelClaims,
   previewMileage, submitMileageClaim,
@@ -155,7 +155,7 @@ export async function _renderMileage() {
   );
   // Personal vehicle options (exclude public transport code)
   const pvOpts = S.vehicles.filter(v => v.code !== 'public')
-    .map(v => `<option value="${v.code}" data-rate="${v.fuel_rate_per_km}" data-dep="${v.depreciation_per_km}">${esc(v.label)} (฿${(Number(v.fuel_rate_per_km)+Number(v.depreciation_per_km)).toFixed(2)}/km)</option>`).join('');
+    .map(v => `<option value="${attr(v.code)}" data-rate="${v.fuel_rate_per_km}" data-dep="${v.depreciation_per_km}">${esc(v.label)} (฿${(Number(v.fuel_rate_per_km)+Number(v.depreciation_per_km)).toFixed(2)}/km)</option>`).join('');
 
   wrap.innerHTML = `
     <div style="max-width:540px;display:flex;flex-direction:column;gap:18px;margin-bottom:32px;">

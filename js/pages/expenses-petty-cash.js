@@ -1,7 +1,7 @@
 // pages/expenses-petty-cash.js — PETTY CASH tab (ledger + topup form + setup panel)
 
 import { S, _fmt, _money, _badge, _today, _catIn, _catOut, OFFICE_IN_CAT_NAMES, _officeProjectId, _projOptions, _inWeek, _loadErrorHtml } from './expenses-state.js';
-import { esc, toISODate } from '../format.js';
+import { esc, attr, toISODate } from '../format.js';
 import { weekNavHtml, wireWeekNav } from '../components/weekNav.js';
 import { supabase } from '../config.js';
 import {
@@ -312,9 +312,9 @@ async function _recordTopup() {
 function _setupPanel() {
   const vehRows = S.vehicles.map(v => `<tr>
     <td>${esc(v.label)}</td>
-    <td><input type="number" class="form-control vr-fuel" data-code="${v.code}" value="${v.fuel_rate_per_km}" step="0.01" style="width:90px"></td>
-    <td><input type="number" class="form-control vr-dep" data-code="${v.code}" value="${v.depreciation_per_km}" step="0.01" style="width:90px"></td>
-    <td><button class="btn btn-ghost btn-sm vr-save" data-code="${v.code}" data-label="${esc(v.label)}">Save</button></td>
+    <td><input type="number" class="form-control vr-fuel" data-code="${attr(v.code)}" value="${v.fuel_rate_per_km}" step="0.01" style="width:90px"></td>
+    <td><input type="number" class="form-control vr-dep" data-code="${attr(v.code)}" value="${v.depreciation_per_km}" step="0.01" style="width:90px"></td>
+    <td><button class="btn btn-ghost btn-sm vr-save" data-code="${attr(v.code)}" data-label="${esc(v.label)}">Save</button></td>
   </tr>`).join('');
   const catList = S.categories.map(c => `<li>${esc(c.name)} <span class="text-muted">(${c.applies_to})</span></li>`).join('');
   return `

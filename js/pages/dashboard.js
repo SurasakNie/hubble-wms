@@ -10,7 +10,7 @@ import { empSelectHtml, wireEmpSelect } from '../components/empSelect.js';
 import { isClientRole, isAdmin, isManager } from '../auth.js';
 import { weekNavHtml, wireWeekNav, updateWeekNavLabel } from '../components/weekNav.js';
 import {
-  setFormatPrefs, formatDuration, getMondayOf, getWeekDays, DAY_LABELS, esc, attr,
+  setFormatPrefs, formatDuration, getMondayOf, getWeekDays, DAY_LABELS, esc, attr, safeColor,
 } from '../format.js';
 
 let _profile   = null;
@@ -352,7 +352,7 @@ function _renderLegend(agg) {
   el.innerHTML = agg.projects.map(p => {
     const pct = Math.round(p.total / agg.grand * 100);
     return `<div class="donut-legend-item">
-      <span class="donut-legend-dot" style="background:${attr(p.color)};"></span>
+      <span class="donut-legend-dot" style="background:${safeColor(p.color)};"></span>
       <span class="donut-legend-name">${esc(p.name)}</span>
       <span class="donut-legend-value">${formatDuration(p.total)}</span>
       <span class="donut-legend-pct">${pct}%</span>
@@ -371,7 +371,7 @@ function _renderActivities(agg) {
   }
   el.innerHTML = agg.activities.map(a => `
     <div class="activity-item">
-      <span class="activity-dot" style="background:${attr(a.color)};"></span>
+      <span class="activity-dot" style="background:${safeColor(a.color)};"></span>
       <span class="activity-desc">${esc(a.desc)}</span>
       <span class="activity-hours">${formatDuration(a.hours)}</span>
     </div>`).join('');

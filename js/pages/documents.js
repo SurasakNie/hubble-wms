@@ -731,7 +731,7 @@ async function _openDocumentModal(id, autoPrint = false) {
           <button class="btn btn-primary btn-sm" id="doc-print-now">Print / Save PDF</button>
           <button class="btn btn-ghost btn-sm" data-close>Close</button>
         </div>
-        <div class="modal-body doc-print-body">${doc.content_html}</div>
+        <div class="modal-body doc-print-body">${sanitizeHtml(doc.content_html)}</div>
       </div>
     `;
     document.body.appendChild(modal);
