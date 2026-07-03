@@ -1065,7 +1065,7 @@ td.ts-weekend { background: rgba(0, 0, 0, 0.13); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
+  opacity: 0.6;
   transition: opacity var(--transition), color var(--transition);
 }
 
@@ -1207,7 +1207,14 @@ tbody tr:hover .ts-remove-btn { opacity: 1; }
 
 /* Employee datalist picker with clear button */
 .emp-select-wrap { position: relative; }
-.emp-select-wrap .form-input { padding-right: 50px; }   /* room for the native datalist arrow + ✕ (arrow left, ✕ right) */
+.emp-select-wrap .form-input {
+  /* Full shorthand + !important: the global input denylist rule (the long
+     :not() chain) has very high specificity and its `padding: 8px 10px`
+     shorthand would otherwise clobber a right-only override, dropping the
+     gutter so a selected value runs under the datalist arrow + ✕ button.
+     Always set the complete padding here, same pattern as .search-input input. */
+  padding: 8px 50px 8px 10px !important;   /* room for the native datalist arrow + ✕ (arrow left, ✕ right) */
+}
 .emp-clear-btn {
   position: absolute;
   right: 8px;   /* ✕ at the far right; the native arrow is shifted left of it (see margin-right below) */
