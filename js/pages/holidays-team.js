@@ -20,7 +20,7 @@ export function renderTeamLeave(wrap) {
   wrap.innerHTML = `
     <div style="max-width:360px;margin-bottom:24px;">
       <label class="form-label">Employee
-        ${empSelectHtml('hl-tl', activeEmps, { selectedId: S.teamLeaveEmpId })}
+        ${empSelectHtml('hl-tl', S.employees, { selectedId: S.teamLeaveEmpId })}
       </label>
     </div>
 
@@ -129,7 +129,7 @@ export function renderTeamLeave(wrap) {
     `}
   `;
 
-  wireEmpSelect('hl-tl', activeEmps, emp => {
+  wireEmpSelect('hl-tl', S.employees, emp => {
     S.teamLeaveEmpId = emp?.id ?? null;
     renderTeamLeave(wrap);
   });
@@ -207,7 +207,7 @@ export function renderTeamFlex(wrap) {
   wrap.innerHTML = `
     <div style="max-width:360px;margin-bottom:24px;">
       <label class="form-label">Employee
-        ${empSelectHtml('hl-tf', activeEmps, { selectedId: S.teamFlexEmpId })}
+        ${empSelectHtml('hl-tf', S.employees, { selectedId: S.teamFlexEmpId })}
       </label>
     </div>
 
@@ -289,7 +289,7 @@ export function renderTeamFlex(wrap) {
     `}
   `;
 
-  wireEmpSelect('hl-tf', activeEmps, emp => {
+  wireEmpSelect('hl-tf', S.employees, emp => {
     S.teamFlexEmpId = emp?.id ?? null;
     renderTeamFlex(wrap);
   });

@@ -7,7 +7,9 @@
 -- rollback patches. Each RPC below runs all writes in ONE transaction, so a
 -- partial failure rolls back automatically — no half-applied approvals.
 --
--- All are SECURITY DEFINER with search_path=public and an admin/owner guard,
+-- All are SECURITY DEFINER with search_path=public, pg_temp (pg_temp listed
+-- LAST to close the temp-schema relation-hijack vector; see 20260711) and an
+-- admin/owner guard,
 -- mirroring the existing approve_trip_settlement / get_client_project_summary
 -- RPC conventions. After running, the NOTIFY pgrst reloads the API schema.
 -- ============================================================
@@ -17,7 +19,7 @@ create or replace function approve_deletion_request(p_request_id uuid)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   v_role        text := get_my_role();
@@ -64,7 +66,7 @@ create or replace function review_name_change_request(
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   v_role          text := get_my_role();
@@ -104,7 +106,7 @@ create or replace function approve_job_title_change_request(p_request_id uuid)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   v_role            text := get_my_role();

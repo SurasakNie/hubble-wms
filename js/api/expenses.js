@@ -174,12 +174,17 @@ export async function getRunningBalance(uptoDate) {
 }
 
 export async function approveTransaction(id, tier, actorId) {
+  // Guard on the prior status so a retried call can't re-fire the ledger-posting
+  // trigger: manager tier only advances pending; finance tier only advances
+  // manager_approved. (The admin override path uses overrideTransactionStatus.)
   const patch = tier === 'finance'
     ? { status: 'approved', finance_approved_by: actorId, finance_approved_at: new Date().toISOString() }
     : { status: 'manager_approved', manager_approved_by: actorId, manager_approved_at: new Date().toISOString() };
+  const prior = tier === 'finance' ? 'manager_approved' : 'pending';
   const { data, error } = await supabase
-    .from('cash_transactions').update(patch).eq('id', id).select(TXN_SELECT).single();
+    .from('cash_transactions').update(patch).eq('id', id).eq('status', prior).select(TXN_SELECT).maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('This item was already updated — refresh and try again.');
   return data;
 }
 
@@ -187,8 +192,9 @@ export async function rejectTransaction(id, actorId, reason) {
   const { data, error } = await supabase
     .from('cash_transactions')
     .update({ status: 'rejected', rejected_by: actorId, rejected_at: new Date().toISOString(), rejection_reason: reason || null })
-    .eq('id', id).select(TXN_SELECT).single();
+    .eq('id', id).in('status', ['pending', 'manager_approved']).select(TXN_SELECT).maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('This item was already updated — refresh and try again.');
   return data;
 }
 
@@ -260,12 +266,16 @@ export async function getAllTravelClaims({ status, employeeId, fromDate, toDate 
 }
 
 export async function approveTravelClaim(id, tier, actorId) {
+  // Prior-status guard (mirrors approveTransaction) so a retry can't re-post the
+  // ledger. Admin status overrides go through overrideTravelClaimStatus, not here.
   const patch = tier === 'finance'
     ? { status: 'approved', finance_approved_by: actorId, finance_approved_at: new Date().toISOString() }
     : { status: 'manager_approved', manager_approved_by: actorId, manager_approved_at: new Date().toISOString() };
+  const prior = tier === 'finance' ? 'manager_approved' : 'pending';
   const { data, error } = await supabase
-    .from('travel_claims').update(patch).eq('id', id).select(CLAIM_SELECT).single();
+    .from('travel_claims').update(patch).eq('id', id).eq('status', prior).select(CLAIM_SELECT).maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('This claim was already updated — refresh and try again.');
   return data;
 }
 
@@ -273,7 +283,20 @@ export async function rejectTravelClaim(id, actorId, reason) {
   const { data, error } = await supabase
     .from('travel_claims')
     .update({ status: 'rejected', rejected_by: actorId, rejected_at: new Date().toISOString(), rejection_reason: reason || null })
-    .eq('id', id).select(CLAIM_SELECT).single();
+    .eq('id', id).in('status', ['pending', 'manager_approved']).select(CLAIM_SELECT).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('This claim was already updated — refresh and try again.');
+  return data;
+}
+
+// Admin status override — sets an arbitrary status directly (mirrors
+// overrideTransactionStatus). Kept separate from approveTravelClaim so the
+// forward-approval guards above can't be bypassed accidentally, and so an
+// override to 'rejected'/'pending' lands on the chosen status instead of being
+// coerced to 'manager_approved' (the pre-fix behaviour of the reused approve fn).
+export async function overrideTravelClaimStatus(id, status) {
+  const { data, error } = await supabase
+    .from('travel_claims').update({ status }).eq('id', id).select(CLAIM_SELECT).single();
   if (error) throw error;
   return data;
 }
