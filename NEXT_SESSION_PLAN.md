@@ -150,3 +150,51 @@ run a script on their own machine, or click through a GitHub OAuth consent scree
 3 needs a 10-second live check from the user. Item 1 (the audit) is the only piece of
 substantive engineering work left, and its status depends on whether the prior session
 finished it before ending — check for an `AUDIT_2026-07-0X_*.md` file first.**
+
+---
+
+## 6. CONSOLIDATED POST-TRANSFER VERIFICATION CHECKLIST (as of 2026-07-03, Round 54)
+
+*This section supersedes the scattered items above — it merges (a) the audit's
+`⚠️ PENDING prod Studio apply` migrations, (b) the peer session's Edge-Function / role-login
+test list, (c) this round's PR money-flow changes, and (d) the leftover items 2–4 from
+this doc. **The audit itself is DONE** (`AUDIT_2026-07-03_FULL_PROJECT.md`, all
+Critical/High fixed on branch `claude/next-session-plan-h9psa4` → PR #26). What remains is
+almost entirely things a cloud session cannot do: run SQL in Studio, click through the
+live app, decide an OAuth consent.*
+
+### Do first — apply the two pending migrations in Supabase Studio
+These are the only items that make the audit's RLS fixes actually take effect in prod;
+until applied, the Critical finding (12 client-readable internal tables incl. salary) is
+still live. Both are independent of the PR merge — just run the SQL.
+- [ ] Apply `20260710_client_block_expanded.sql` (the Critical client-block gap + `is_admin()` swap)
+- [ ] Apply `20260711_f05_rpc_search_path.sql` (M-2 `search_path` hardening)
+
+### Dependency chain — one test-client password covers three checks
+Reset ONE test client's password in the admin Clients page to a known value first (the
+last probe run failed on bad credentials, not a real bug). Then, in order:
+- [ ] Re-run `f01_prod_client_probe.sh <client_code> "<pw>"` → expect all checks PASS, incl. the 12 new tables now returning 0 rows
+- [ ] Log in as that client through the **real login form** → confirms the client portal still loads (it only reads the 5 intentionally-allowed tables, so the migration shouldn't break it — this proves it)
+
+### Independent — one click-through pass, any order
+- [ ] `provision-client` — Clients page → provision a test client
+- [ ] `admin-clear-mfa` — clear 2FA on a test account
+- [ ] `admin-set-account-active` — deactivate then reactivate a test account
+- [ ] `account-activation-status` — Employees → Account Status tab loads without error
+- [ ] **Manager**-role login through the UI
+- [ ] TOTP/2FA challenge screen (only if a test account has 2FA enabled — separate code path)
+- [ ] **PR #26 money-flow spot-check** (this round's new status-guards touch approval): a normal expense/leave approve + reject, the two-stage "Save & Approve", and one admin **status override on a travel claim** (that override path was rewired to a new `overrideTravelClaimStatus` + also fixes a latent bug where an override to rejected/pending got coerced to manager_approved)
+- [ ] Add-Member "App link" reads exactly `https://surasaknie.github.io/hubble-wms/index.html`
+
+### Your call / comms — not tests
+- [ ] `Claude Design Import` GitHub App — install on `SurasakNie` only if you use design-file import (OAuth consent, only you can do it)
+- [ ] "URL changed" message to users should say **"you'll need to sign in again"** — sessions don't carry across domains and locally-cached UI state (dismissed notifications, "seen" flags) resets on the new origin
+
+### Known caveat — noted, low risk, no action needed unless a flow gets wired
+- Supabase's `Site URL` is `http://localhost:3030` by design, so any **native** Supabase auth
+  email (magic link, signup confirm, native password reset) would embed a dead localhost
+  link. Safe today because this app uses admin-provisioned passwords + its own admin-reset
+  Edge Function, not self-serve email flows. **Only becomes a bug if someone ever wires
+  "forgot password" (or any signup/magic-link flow) to Supabase's native email** instead of
+  the app's own path — at which point set `Site URL` to the prod origin. Worth a glance:
+  confirm the login screen has no "forgot password" link pointing at Supabase native reset.
