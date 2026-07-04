@@ -305,6 +305,8 @@ which branch and commit you're actually on before assuming a file "doesn't exist
       internet access instead. Auth failed on the first real attempt with
       `invalid_credentials` (wrong/unconfirmed test client credentials, unrelated to the
       transfer) — re-run with confirmed-correct credentials to get a real pass/fail.
+      **⚠️ Re-run this only AFTER applying the two Round-54 migrations below — the probe
+      now asserts 12 additional tables that those migrations lock down.**
 - [x] `hubble-wms-backups` Actions tab shows `nightly-db-backup` enabled and green
       (run #23, today, 1m 2s), with a fresh `daily/` backup file committed.
 - [x] Watch is re-armed on the backups repo from the new account (was already
@@ -318,6 +320,40 @@ which branch and commit you're actually on before assuming a file "doesn't exist
 - [x] GitHub Apps — the main `Claude` integration was already installed on the new
       account; a secondary unused app (`Claude Design Import`) was not, and that's fine.
 - [x] Users notified of the URL change.
+
+---
+
+## 15. Round 54 post-transfer audit — outputs that still need YOUR action (2026-07-03)
+
+The full post-transfer security/code audit is **done** (see `AUDIT_2026-07-03_FULL_PROJECT.md`,
+local-only; all Critical/High + most Medium/Low fixed on branch
+`claude/next-session-plan-h9psa4` → PR #26). The canonical, ordered checklist lives in
+**`NEXT_SESSION_PLAN.md` § 6** — this is a pointer + the items that intersect this transfer
+doc specifically:
+
+- [ ] **Apply `20260710_client_block_expanded.sql` in Supabase Studio** — closes the
+      audit's Critical finding: 12 internal tables (incl. `employee_compensation` salary
+      data) were readable by any `client`-role session, missed by the R49 hand-maintained
+      block-list. Also moves `audit_log_select_admin` off `get_my_role()` onto `is_admin()`.
+      **Until applied, that leak is live in prod.**
+- [ ] **Apply `20260711_f05_rpc_search_path.sql` in Supabase Studio** — pins the 3 f05
+      SECURITY DEFINER RPCs to `search_path = public, pg_temp` (defense-in-depth).
+- [ ] After both applies: re-run the F-01 probe (§14 item), then log in as the test client
+      through the **real login form** to confirm the portal still loads.
+- [ ] One-pass live click-through of the remaining Edge-Function admin features
+      (`provision-client`, `admin-clear-mfa`, `admin-set-account-active`,
+      `account-activation-status`), a **manager**-role UI login, a TOTP challenge if any
+      test account has 2FA, and the **PR #26 money-flow spot-check** (the new
+      approval status-guards touch expense/leave/travel-claim approve/reject — test a
+      normal approve+reject, the two-stage "Save & Approve", and one admin status override
+      on a travel claim).
+- [ ] Nothing to do unless triggered: Supabase `Site URL` is `http://localhost:3030` by
+      design (§2), so any **native** Supabase auth email (magic link / signup confirm /
+      native password reset) embeds a dead localhost link. Safe today (this app uses
+      admin-provisioned passwords + its own admin-reset Edge Function, no self-serve email).
+      Only becomes a bug if a "forgot password" or signup flow is ever wired to Supabase's
+      native email — at which point set `Site URL` to the prod origin. Quick glance: confirm
+      the login screen has no "forgot password" link pointing at Supabase native reset.
 
 ---
 
