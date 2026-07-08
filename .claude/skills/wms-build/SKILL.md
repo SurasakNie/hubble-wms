@@ -51,8 +51,9 @@ These come from `CLAUDE.md` — re-check it if anything here looks stale.
 ## Current baseline (keep in sync via `close` mode)
 
 After **Round 55** (Part Numbers v2, spec-driven, 2026-07-08):
-working **JS `?v=117`**, **CSS `?v=39`**, **tokens.css `?v=22`**. Next session
-bumps from `v=117`. This is the single source of truth the `close` mode advances.
-🟡 Open: apply **`20260711_part_numbers_v2.sql`** in Studio (not yet applied; no
-BEGIN/COMMIT wrapper). PN now uses real projects/clients + 3-letter CAT codes per
-`PART_NUMBERING_SPEC.md`.
+working **JS `?v=120`**, **CSS `?v=39`**, **tokens.css `?v=22`**. Next session
+bumps from `v=120`. This is the single source of truth the `close` mode advances.
+✅ `20260711_part_numbers_v2.sql` applied in prod Studio 2026-07-08; PN v2 merged
+to `main` + deployed. PN uses real projects/clients + 3-letter CAT codes per
+`PART_NUMBERING_SPEC.md`. ⚠️ Repo must stay **public** for GitHub Pages (Free plan);
+making it private unpublishes the site and does not auto-re-enable on re-publicizing.
