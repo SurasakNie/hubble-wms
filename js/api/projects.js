@@ -7,9 +7,9 @@ import { supabase } from '../config.js';
 // ──────────────────────────────────────────────────────────────
 
 const PROJECT_SELECT = `
-  id, name, color, access, is_billable, estimated_hours,
+  id, name, code, color, access, is_billable, estimated_hours,
   is_archived, is_favorite, created_at,
-  client:clients(id, name)
+  client:clients(id, name, code)
 `;
 
 export async function getProjects({ includeArchived = false, clientId } = {}) {
@@ -36,10 +36,10 @@ export async function getProject(id) {
   return data;
 }
 
-export async function createProject({ name, clientId, color = '#03a9f4', access = 'public', isBillable = true, estimatedHours }) {
+export async function createProject({ name, code = null, clientId, color = '#03a9f4', access = 'public', isBillable = true, estimatedHours }) {
   const { data, error } = await supabase
     .from('projects')
-    .insert({ name, client_id: clientId || null, color, access, is_billable: isBillable, estimated_hours: estimatedHours || null })
+    .insert({ name, code: code || null, client_id: clientId || null, color, access, is_billable: isBillable, estimated_hours: estimatedHours || null })
     .select(PROJECT_SELECT)
     .single();
   if (error) throw error;
@@ -49,6 +49,7 @@ export async function createProject({ name, clientId, color = '#03a9f4', access 
 export async function updateProject(id, updates) {
   const payload = {};
   if (updates.name            !== undefined) payload.name             = updates.name;
+  if (updates.code            !== undefined) payload.code             = updates.code || null;
   if (updates.color           !== undefined) payload.color            = updates.color;
   if (updates.access          !== undefined) payload.access           = updates.access;
   if (updates.isBillable      !== undefined) payload.is_billable      = updates.isBillable;

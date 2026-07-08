@@ -178,6 +178,7 @@ function _renderTable() {
     const p = _projects.find(x => x.id === tr.dataset.id);
     if (!p) return;
     if (admin) tr.querySelector('.pr-dot')?.addEventListener('click', () => _openColorPicker(p));
+    tr.querySelector('.act-partnums')?.addEventListener('click', () => { window.location.hash = '#part-numbers?project=' + p.id; });
     tr.querySelector('.act-assign')?.addEventListener('click', () => _openAssignModal(p));
     tr.querySelector('.act-edit')?.addEventListener('click', () => _openProjectModal(p));
     tr.querySelector('.act-fav')?.addEventListener('click', () => _toggleFavorite(p));
@@ -206,8 +207,19 @@ function _renderRow(p, admin) {
         ? `<span class="row-action-btn" style="opacity:1" title="Favorite"><svg width="15" height="15" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>`
         : '');
 
-  const actions = admin ? `
+  // Available to all internal roles — jumps to this project's part numbers.
+  const pnBtn = `
+      <button class="row-action-btn act-partnums" title="Part numbers">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/>
+          <line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/>
+        </svg>
+      </button>`;
+
+  const actions = `
     <div class="row-actions">
+      ${pnBtn}
+      ${admin ? `
       <button class="row-action-btn act-assign" title="Assign members">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -235,8 +247,8 @@ function _renderRow(p, admin) {
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
         </svg>
-      </button>
-    </div>` : '';
+      </button>` : ''}
+    </div>`;
 
   return `
     <tr data-id="${p.id}"${archived ? ' style="opacity:0.55"' : ''}>
@@ -244,6 +256,7 @@ function _renderRow(p, admin) {
         <span style="display:inline-flex; align-items:center; gap:8px;">
           <span class="project-dot pr-dot" style="background:${color}; width:12px; height:12px;${admin ? ' cursor:pointer;' : ''}" title="${admin ? 'Change color' : ''}"></span>
           ${esc(p.name || '')}
+          ${p.code ? `<span class="text-muted" style="font-family:var(--font-mono, monospace); font-size:var(--font-xs); margin-left:2px;">${esc(p.code)}</span>` : ''}
           ${archived ? '<span class="badge badge-client" style="margin-left:4px;">archived</span>' : ''}
         </span>
       </td>
@@ -594,6 +607,10 @@ function _openProjectModal(project) {
             <input type="text" id="pr-f-name" value="${attr(cur.name || '')}" placeholder="Project name">
           </label>
           <label style="display:flex; flex-direction:column; gap:4px;">
+            <span class="text-muted" style="font-size:var(--font-xs)">Project code (2–5) — used in part numbers</span>
+            <input type="text" id="pr-f-code" value="${attr(cur.code || '')}" maxlength="5" style="text-transform:uppercase;" placeholder="e.g. HYD">
+          </label>
+          <label style="display:flex; flex-direction:column; gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Client</span>
             <select id="pr-f-client">
               <option value=""${isEdit ? '' : ' disabled selected'}>${isEdit ? 'No client' : 'Select a client…'}</option>
@@ -653,12 +670,15 @@ function _openProjectModal(project) {
   mount.querySelector('#pr-modal-save').addEventListener('click', async () => {
     const name = mount.querySelector('#pr-f-name').value.trim();
     if (!name) { window.showToast?.('Enter a project name', 'error'); return; }
+    const code = mount.querySelector('#pr-f-code').value.trim().toUpperCase();
+    if (code && !/^[A-Z0-9]{2,5}$/.test(code)) { window.showToast?.('Project code must be 2–5 letters/digits', 'error'); return; }
     const clientId = mount.querySelector('#pr-f-client').value || null;
     // A new project must belong to a client (edit may keep an existing "No client" project).
     if (!isEdit && !clientId) { window.showToast?.('Select a client for the project', 'error'); return; }
     const estRaw = mount.querySelector('#pr-f-est').value;
     const payload = {
       name,
+      code,
       clientId,
       color:          colorInput.value,
       access:         mount.querySelector('#pr-f-access').value,

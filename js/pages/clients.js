@@ -35,6 +35,7 @@ export async function render(profile) {
     <div class="card" style="margin-bottom:var(--sp-4)">
       <div style="display:flex; gap:var(--sp-3); align-items:center; flex-wrap:wrap;">
         <input type="text" id="cl-name" placeholder="Add new client" style="flex:1; min-width:200px;">
+        <input type="text" id="cl-code" placeholder="Code (2–4)" maxlength="4" style="width:110px; text-transform:uppercase;" title="Company code (CCC) — used in part numbers">
         <input type="text" id="cl-address" placeholder="Address (optional)" style="flex:1; min-width:160px;">
         <select id="cl-currency" style="width:auto; min-width:90px;">
           ${CURRENCIES.map(c => `<option value="${c}"${c === 'THB' ? ' selected' : ''}>${c}</option>`).join('')}
@@ -133,6 +134,7 @@ function _renderTable() {
         <thead>
           <tr>
             <th>Name</th>
+            <th>Code</th>
             <th>Address</th>
             <th>Currency</th>
             <th></th>
@@ -202,6 +204,7 @@ function _renderRow(c, admin) {
   return `
     <tr data-id="${c.id}"${inactive ? ' style="opacity:0.55"' : ''}>
       <td style="font-weight:500;">${name}${inactive ? ' <span class="badge badge-client" style="margin-left:6px;">inactive</span>' : ''}</td>
+      <td>${c.code ? `<span style="font-family:var(--font-mono, monospace);">${esc(c.code)}</span>` : '<span class="text-muted">—</span>'}</td>
       <td>${address}</td>
       <td><span class="text-muted">${esc(c.currency || 'THB')}</span></td>
       <td class="col-actions">
@@ -228,22 +231,27 @@ function _renderRow(c, admin) {
 async function _handleAdd() {
   const content  = document.getElementById('content');
   const nameEl    = content.querySelector('#cl-name');
+  const codeEl    = content.querySelector('#cl-code');
   const addressEl = content.querySelector('#cl-address');
   const currEl    = content.querySelector('#cl-currency');
   const addBtn    = content.querySelector('#cl-add');
 
   const name = nameEl.value.trim();
   if (!name) { window.showToast?.('Enter a client name', 'error'); return; }
+  const code = codeEl.value.trim().toUpperCase();
+  if (code && !/^[A-Z0-9]{2,4}$/.test(code)) { window.showToast?.('Company code must be 2–4 letters/digits', 'error'); return; }
 
   addBtn.disabled = true;
   try {
     const client = await createClient({
       name,
+      code,
       address:  addressEl.value.trim(),
       currency: currEl.value,
     });
     _clients.push(client);
     nameEl.value = '';
+    codeEl.value = '';
     addressEl.value = '';
     currEl.value = 'THB';
     nameEl.focus();
@@ -296,6 +304,10 @@ function _openEditModal(client) {
             <input type="text" id="cl-edit-name" value="${attr(client.name || '')}">
           </label>
           <label style="display:flex; flex-direction:column; gap:4px;">
+            <span class="text-muted" style="font-size:var(--font-xs)">Company code (2–4) — used in part numbers</span>
+            <input type="text" id="cl-edit-code" value="${attr(client.code || '')}" maxlength="4" style="text-transform:uppercase;">
+          </label>
+          <label style="display:flex; flex-direction:column; gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Address</span>
             <input type="text" id="cl-edit-address" value="${attr(client.address || '')}">
           </label>
@@ -328,8 +340,11 @@ function _openEditModal(client) {
   mount.querySelector('#cl-modal-save').addEventListener('click', async () => {
     const name = mount.querySelector('#cl-edit-name').value.trim();
     if (!name) { window.showToast?.('Enter a client name', 'error'); return; }
+    const code = mount.querySelector('#cl-edit-code').value.trim().toUpperCase();
+    if (code && !/^[A-Z0-9]{2,4}$/.test(code)) { window.showToast?.('Company code must be 2–4 letters/digits', 'error'); return; }
     const payload = {
       name,
+      code,
       address:  mount.querySelector('#cl-edit-address').value.trim(),
       currency: mount.querySelector('#cl-edit-currency').value,
     };
@@ -339,6 +354,7 @@ function _openEditModal(client) {
     saveBtn.disabled = true;
     const changes = {};
     if (payload.name     !== client.name)     changes.name     = { old: client.name,     new: payload.name };
+    if ((payload.code || null) !== (client.code || null)) changes.code = { old: client.code, new: payload.code };
     if (payload.address  !== client.address)  changes.address  = { old: client.address,  new: payload.address };
     if (payload.currency !== client.currency) changes.currency = { old: client.currency, new: payload.currency };
     try {

@@ -1,24 +1,43 @@
-// pages/partNumbers.js — Part Number Generator (#part-numbers)
-// House format CC-PPP-AA-BBB. Items are minted via the pn_create_item RPC
-// (atomic counter — numbers are never reused). Projects with a customer-
-// imposed scheme also carry a customer PN (template or manual entry).
-// Admin/manager manage PN projects + type codes; all internal roles
-// generate items and bump revisions.
+// pages/partNumbers.js — Part Number Generator v2 (#part-numbers)
+// Format CCC-PPP-CAT-SEQ (see PART_NUMBERING_SPEC.md). Projects/clients are
+// the real timesheet records (CCC = client.code, PPP = project.code); CAT is
+// a 3-letter governed category code; items are minted via the pn_create_item
+// RPC (numbers never reused). Items carry 5 managed attributes and a revision
+// history with per-revision snapshots (for the Compare view).
 
 import {
-  getPnProjects, createPnProject, updatePnProject,
-  getTypeCodes, createTypeCode, updateTypeCode,
+  getPnProjects, getProjectConfig, upsertProjectConfig,
+  getCategories, createCategory, updateCategory,
+  getAttributes, createAttribute, updateAttribute,
   getItems, createItem, updateItem, deleteItem,
   bumpRevision, getRevisions,
 } from '../api/partNumbers.js';
 import { isAdmin, isManager } from '../auth.js';
 import { esc, attr } from '../format.js';
 
-let _projects  = [];
-let _typeCodes = [];
-let _items     = [];
-let _projectId = null;   // survives re-renders within the session
-let _typeFilter = '';
+const ATTR_KINDS = [
+  { kind: 'material',    label: 'Material' },
+  { kind: 'finish',      label: 'Finish' },
+  { kind: 'vendor',      label: 'Vendor' },
+  { kind: 'fab_process', label: 'Fabrication Process' },
+  { kind: 'color',       label: 'Color' },
+];
+
+// snapshot key → label, in display order (matches pn_item_snapshot in the migration)
+const SNAP_FIELDS = [
+  ['name', 'Name'], ['description', 'Description'], ['category', 'Category'],
+  ['revision', 'Revision'], ['status', 'Status'], ['customer_pn', 'Customer PN'],
+  ['material', 'Material'], ['finish', 'Finish'], ['vendor', 'Vendor'],
+  ['fab_process', 'Fab Process'], ['color', 'Color'],
+];
+
+let _projects   = [];
+let _categories = [];
+let _attrs      = {};      // { material: [...], finish: [...], ... }
+let _config     = null;    // current project's pn_project_config (or null → none)
+let _items      = [];
+let _projectId  = null;
+let _catFilter  = '';
 let _search     = '';
 
 // ──────────────────────────────────────────────────────────────
@@ -26,8 +45,12 @@ let _search     = '';
 // ──────────────────────────────────────────────────────────────
 
 export async function render() {
-  _typeFilter = '';
-  _search     = '';
+  _catFilter = '';
+  _search    = '';
+  _config    = null;
+  // Deep link from the Projects page: #part-numbers?project=<id>
+  const m = (window.location.hash || '').match(/[?&]project=([0-9a-fA-F-]+)/);
+  if (m) _projectId = m[1];
 
   const canManage = isAdmin() || isManager();
 
@@ -36,8 +59,8 @@ export async function render() {
 
   document.getElementById('content').innerHTML = `
     <div class="filter-bar" style="flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:var(--sp-4);">
-      <select id="pn-project" style="min-width:220px;"></select>
-      <select id="pn-type-filter" style="min-width:180px;"></select>
+      <select id="pn-project" style="min-width:240px;"></select>
+      <select id="pn-cat-filter" style="min-width:200px;"></select>
       <div class="search-input">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -47,10 +70,12 @@ export async function render() {
       </div>
       <span style="flex:1;"></span>
       ${canManage ? `
-        <button class="btn btn-ghost" id="pn-manage-projects">Projects</button>
-        <button class="btn btn-ghost" id="pn-manage-types">Type Codes</button>` : ''}
+        <button class="btn btn-ghost" id="pn-manage-cats">Categories</button>
+        <button class="btn btn-ghost" id="pn-manage-attrs">Lists</button>
+        <button class="btn btn-ghost" id="pn-manage-config">Customer PN</button>` : ''}
       <button class="btn btn-primary" id="pn-new-item" disabled>+ New Item</button>
     </div>
+    <div id="pn-hint" style="margin-bottom:var(--sp-3);"></div>
     <div id="pn-table-wrap">
       <div class="empty-state"><div class="empty-state-title">Loading…</div></div>
     </div>`;
@@ -60,59 +85,84 @@ export async function render() {
 }
 
 function _wireControls(canManage) {
-  const content = document.getElementById('content');
-
-  content.querySelector('#pn-project').addEventListener('change', async e => {
+  const c = document.getElementById('content');
+  c.querySelector('#pn-project').addEventListener('change', async e => {
     _projectId = e.target.value || null;
+    await _loadConfig();
     await _loadItems();
   });
-  content.querySelector('#pn-type-filter').addEventListener('change', e => {
-    _typeFilter = e.target.value;
-    _renderTable();
-  });
-  content.querySelector('#pn-search').addEventListener('input', e => {
-    _search = e.target.value.trim().toLowerCase();
-    _renderTable();
-  });
-  content.querySelector('#pn-new-item').addEventListener('click', () => {
-    const proj = _currentProject();
-    if (proj) _openNewItemModal(proj);
-  });
+  c.querySelector('#pn-cat-filter').addEventListener('change', e => { _catFilter = e.target.value; _renderTable(); });
+  c.querySelector('#pn-search').addEventListener('input', e => { _search = e.target.value.trim().toLowerCase(); _renderTable(); });
+  c.querySelector('#pn-new-item').addEventListener('click', () => { if (_canMint()) _openItemModal(null); });
   if (canManage) {
-    content.querySelector('#pn-manage-projects').addEventListener('click', _openProjectsModal);
-    content.querySelector('#pn-manage-types').addEventListener('click', _openTypeCodesModal);
+    c.querySelector('#pn-manage-cats').addEventListener('click', _openCategoriesModal);
+    c.querySelector('#pn-manage-attrs').addEventListener('click', _openAttributesModal);
+    c.querySelector('#pn-manage-config').addEventListener('click', _openConfigModal);
   }
 }
 
 async function _loadAll() {
   try {
-    [_projects, _typeCodes] = await Promise.all([getPnProjects(), getTypeCodes()]);
+    const [projects, categories, allAttrs] = await Promise.all([
+      getPnProjects(), getCategories(), getAttributes({}),
+    ]);
+    _projects   = projects;
+    _categories = categories;
+    _attrs = {};
+    ATTR_KINDS.forEach(k => { _attrs[k.kind] = allAttrs.filter(a => a.kind === k.kind); });
   } catch (err) {
     window.showToast?.(err.message, 'error');
-    _projects = []; _typeCodes = [];
+    _projects = []; _categories = []; _attrs = {};
   }
   if (_projectId && !_projects.some(p => p.id === _projectId)) _projectId = null;
   if (!_projectId && _projects.length === 1) _projectId = _projects[0].id;
   _renderProjectSelect();
-  _renderTypeFilter();
+  _renderCatFilter();
+  await _loadConfig();
   await _loadItems();
 }
 
+async function _loadConfig() {
+  _config = null;
+  if (!_projectId) return;
+  try { _config = await getProjectConfig(_projectId); }
+  catch (err) { console.warn('[partNumbers] config load failed:', err.message); }
+}
+
 async function _loadItems() {
+  _renderHint();
   const newBtn = document.getElementById('pn-new-item');
-  if (newBtn) newBtn.disabled = !_projectId;
+  if (newBtn) newBtn.disabled = !_canMint();
   if (!_projectId) { _items = []; _renderTable(); return; }
-  try {
-    _items = await getItems(_projectId);
-  } catch (err) {
-    window.showToast?.(err.message, 'error');
-    _items = [];
-  }
+  try { _items = await getItems(_projectId); }
+  catch (err) { window.showToast?.(err.message, 'error'); _items = []; }
   _renderTable();
 }
 
-function _currentProject() {
-  return _projects.find(p => p.id === _projectId) || null;
+// ──────────────────────────────────────────────────────────────
+// HELPERS
+// ──────────────────────────────────────────────────────────────
+
+function _currentProject() { return _projects.find(p => p.id === _projectId) || null; }
+
+function _canMint() {
+  const p = _currentProject();
+  return !!(p && p.code && p.client && p.client.code);
+}
+
+function _attrName(id) {
+  if (!id) return null;
+  for (const k of ATTR_KINDS) {
+    const hit = (_attrs[k.kind] || []).find(a => a.id === id);
+    if (hit) return hit.name;
+  }
+  return null;
+}
+
+function _projLabel(p) {
+  const cc  = p.client?.code || '??';
+  const ppp = p.code || '??';
+  return `${p.name} (${cc}-${ppp})`;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -124,18 +174,26 @@ function _renderProjectSelect() {
   if (!sel) return;
   sel.innerHTML = `<option value="">— Select project —</option>` +
     _projects.map(p =>
-      `<option value="${attr(p.id)}"${p.id === _projectId ? ' selected' : ''}>
-         ${esc(p.name)} (${esc(p.company_code)}-${esc(p.project_code)})
-       </option>`).join('');
+      `<option value="${attr(p.id)}"${p.id === _projectId ? ' selected' : ''}>${esc(_projLabel(p))}</option>`).join('');
 }
 
-function _renderTypeFilter() {
-  const sel = document.getElementById('pn-type-filter');
+function _renderCatFilter() {
+  const sel = document.getElementById('pn-cat-filter');
   if (!sel) return;
-  sel.innerHTML = `<option value="">All types</option>` +
-    _typeCodes.map(t =>
-      `<option value="${attr(t.code)}">${esc(t.code)} — ${esc(t.description)}</option>`).join('');
-  sel.value = _typeFilter;
+  sel.innerHTML = `<option value="">All categories</option>` +
+    _categories.map(t => `<option value="${attr(t.code)}">${esc(t.code)} — ${esc(t.description)}</option>`).join('');
+  sel.value = _catFilter;
+}
+
+function _renderHint() {
+  const el = document.getElementById('pn-hint');
+  if (!el) return;
+  const p = _currentProject();
+  if (!p || _canMint()) { el.innerHTML = ''; return; }
+  const missing = [];
+  if (!p.client?.code) missing.push('its client has no company code (set it on the Clients page)');
+  if (!p.code)         missing.push('this project has no project code (set it on the Projects page)');
+  el.innerHTML = `<div class="empty-state-sub" style="color:var(--warning, #ff9800);">Can’t mint numbers yet — ${missing.map(esc).join('; ')}.</div>`;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -144,7 +202,7 @@ function _renderTypeFilter() {
 
 function _filteredItems() {
   return _items.filter(it => {
-    if (_typeFilter && it.type_code !== _typeFilter) return false;
+    if (_catFilter && it.cat_code !== _catFilter) return false;
     if (_search) {
       const hay = `${it.part_number} ${it.customer_pn || ''} ${it.name}`.toLowerCase();
       if (!hay.includes(_search)) return false;
@@ -159,42 +217,30 @@ function _renderTable() {
   const canManage = isAdmin() || isManager();
 
   if (_projects.length === 0) {
-    wrap.innerHTML = `
-      <div class="empty-state" style="margin-top:40px;">
-        <div class="empty-state-title">No part-number projects yet</div>
-        <div class="empty-state-sub">${canManage
-          ? 'Create a project (company + project code) to start generating part numbers.'
-          : 'Ask a manager to create a part-number project first.'}</div>
-        ${canManage ? `<button class="btn btn-primary" id="pn-empty-create" style="margin-top:var(--sp-3);">Create project</button>` : ''}
-      </div>`;
-    wrap.querySelector('#pn-empty-create')?.addEventListener('click', _openProjectsModal);
+    wrap.innerHTML = `<div class="empty-state" style="margin-top:40px;">
+      <div class="empty-state-title">No projects</div>
+      <div class="empty-state-sub">Create a project (with a code) on the Projects page first.</div></div>`;
     return;
   }
   if (!_projectId) {
-    wrap.innerHTML = `
-      <div class="empty-state" style="margin-top:40px;">
-        <div class="empty-state-title">Select a project</div>
-        <div class="empty-state-sub">Pick a project above to view and generate its part numbers.</div>
-      </div>`;
+    wrap.innerHTML = `<div class="empty-state" style="margin-top:40px;">
+      <div class="empty-state-title">Select a project</div>
+      <div class="empty-state-sub">Pick a project above to view and generate its part numbers.</div></div>`;
     return;
   }
 
   const rows = _filteredItems();
   if (rows.length === 0) {
-    wrap.innerHTML = `
-      <div class="empty-state" style="margin-top:40px;">
-        <div class="empty-state-title">${_search || _typeFilter ? 'No matching items' : 'No items yet'}</div>
-        <div class="empty-state-sub">${_search || _typeFilter ? 'Try different filters' : 'Click "+ New Item" to generate the first part number.'}</div>
-      </div>`;
+    wrap.innerHTML = `<div class="empty-state" style="margin-top:40px;">
+      <div class="empty-state-title">${_search || _catFilter ? 'No matching items' : 'No items yet'}</div>
+      <div class="empty-state-sub">${_search || _catFilter ? 'Try different filters' : (_canMint() ? 'Click “+ New Item” to generate the first part number.' : 'Set the project/client codes first (see above).')}</div></div>`;
     return;
   }
 
   const proj  = _currentProject();
   const admin = isAdmin();
-  const showCustomer = proj && proj.customer_pn_mode !== 'none';
-  const fmtTs = ts => ts
-    ? new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-    : '—';
+  const showCustomer = _config && _config.customer_pn_mode !== 'none';
+  const fmtDate = ts => ts ? new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
   wrap.innerHTML = `
     <div class="table-wrapper">
@@ -203,27 +249,39 @@ function _renderTable() {
           <th style="white-space:nowrap;">Part Number</th>
           ${showCustomer ? '<th style="white-space:nowrap;">Customer PN</th>' : ''}
           <th>Name</th>
-          <th>Type</th>
+          <th>Category</th>
+          <th>Material</th>
+          <th>Finish</th>
           <th>Rev</th>
           <th>Status</th>
-          <th style="white-space:nowrap;">Created</th>
+          <th style="white-space:nowrap;">Updated</th>
           <th></th>
         </tr></thead>
         <tbody>
           ${rows.map(it => `
             <tr data-id="${attr(it.id)}"${it.status === 'obsolete' ? ' style="opacity:.55;"' : ''}>
-              <td style="font-family:var(--font-mono, monospace);white-space:nowrap;font-weight:500;">${esc(it.part_number)}</td>
+              <td style="white-space:nowrap;font-weight:500;">
+                <span style="display:inline-flex;align-items:center;gap:6px;">
+                  <span style="font-family:var(--font-mono, monospace);">${esc(it.part_number)}</span>
+                  <button class="row-action-btn act-info" title="Details / revisions" style="opacity:1;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                  </button>
+                </span>
+              </td>
               ${showCustomer ? `<td style="font-family:var(--font-mono, monospace);white-space:nowrap;">${esc(it.customer_pn || '—')}</td>` : ''}
-              <td style="max-width:280px;word-break:break-word;">${esc(it.name)}${it.description ? `<div class="text-muted" style="font-size:var(--font-xs);">${esc(it.description)}</div>` : ''}</td>
-              <td><span class="text-muted" style="font-size:var(--font-xs);white-space:nowrap;">${esc(it.type_code)} — ${esc(it.type?.description || '')}</span></td>
+              <td style="max-width:240px;word-break:break-word;">${esc(it.name)}</td>
+              <td><span class="text-muted" style="font-size:var(--font-xs);white-space:nowrap;">${esc(it.cat_code)} — ${esc(it.type?.description || '')}</span></td>
+              <td style="font-size:var(--font-sm);">${esc(_attrName(it.material_id) || '—')}</td>
+              <td style="font-size:var(--font-sm);">${esc(_attrName(it.finish_id) || '—')}</td>
               <td>${esc(it.revision)}</td>
               <td><span class="badge ${it.status === 'active' ? 'badge-approved' : 'badge-rejected'}">${esc(it.status)}</span></td>
-              <td style="white-space:nowrap;font-size:var(--font-xs);">${esc(fmtTs(it.created_at))}</td>
+              <td style="white-space:nowrap;font-size:var(--font-xs);">${esc(fmtDate(it.updated_at || it.created_at))}</td>
               <td class="col-actions">
                 <div class="row-actions">
                   <button class="btn btn-ghost btn-sm act-edit">Edit</button>
                   <button class="btn btn-ghost btn-sm act-rev" title="Bump revision">Rev+</button>
-                  <button class="btn btn-ghost btn-sm act-history" title="Revision history">History</button>
                   ${admin ? '<button class="btn btn-ghost btn-sm act-delete" style="color:var(--danger, #f44336);">Delete</button>' : ''}
                 </div>
               </td>
@@ -235,15 +293,15 @@ function _renderTable() {
   wrap.querySelectorAll('tbody tr').forEach(tr => {
     const item = _items.find(i => i.id === tr.dataset.id);
     if (!item) return;
-    tr.querySelector('.act-edit')?.addEventListener('click', () => _openEditItemModal(item));
+    tr.querySelector('.act-info')?.addEventListener('click', () => _openInfoModal(item));
+    tr.querySelector('.act-edit')?.addEventListener('click', () => _openItemModal(item));
     tr.querySelector('.act-rev')?.addEventListener('click', () => _openBumpRevisionModal(item));
-    tr.querySelector('.act-history')?.addEventListener('click', () => _openHistoryModal(item));
     tr.querySelector('.act-delete')?.addEventListener('click', () => _confirmDeleteItem(item));
   });
 }
 
 // ──────────────────────────────────────────────────────────────
-// MODAL PLUMBING (shared)
+// MODAL PLUMBING
 // ──────────────────────────────────────────────────────────────
 
 function _mountModal(html, backdropId) {
@@ -252,148 +310,123 @@ function _mountModal(html, backdropId) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('.modal-close')?.addEventListener('click', close);
   mount.querySelector('.pn-modal-cancel')?.addEventListener('click', close);
-  mount.querySelector(`#${backdropId}`).addEventListener('click', e => {
-    if (e.target.id === backdropId) close();
-  });
+  mount.querySelector(`#${backdropId}`).addEventListener('click', e => { if (e.target.id === backdropId) close(); });
   return { mount, close };
 }
 
+function _attrSelectHtml(id, kind, selectedId) {
+  const opts = (_attrs[kind] || []).map(a =>
+    `<option value="${attr(a.id)}"${a.id === selectedId ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
+  return `<select id="${id}"><option value="">— none —</option>${opts}</select>`;
+}
+
 // ──────────────────────────────────────────────────────────────
-// NEW ITEM
+// NEW / EDIT ITEM
 // ──────────────────────────────────────────────────────────────
 
-function _openNewItemModal(proj) {
-  const manual = proj.customer_pn_mode === 'manual';
+function _openItemModal(item) {
+  const isEdit = !!item;
+  const proj = _currentProject();
+  const manual = _config && _config.customer_pn_mode === 'manual';
+
+  const catOptions = _categories.map(t =>
+    `<option value="${attr(t.code)}"${item && item.cat_code === t.code ? ' selected' : ''}>${esc(t.code)} — ${esc(t.description)}</option>`).join('');
+
+  const attrRows = ATTR_KINDS.map(k => `
+    <label style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px;">
+      <span class="text-muted" style="font-size:var(--font-xs)">${esc(k.label)}</span>
+      ${_attrSelectHtml('pn-i-' + k.kind, k.kind, item ? item[k.kind + '_id'] : null)}
+    </label>`).join('');
+
   const { mount, close } = _mountModal(`
     <div class="modal-backdrop" id="pn-item-backdrop">
-      <div class="modal" id="pn-item-modal">
+      <div class="modal modal-lg" id="pn-item-modal">
         <div class="modal-header">
-          <span class="modal-title">New item — ${esc(proj.name)}</span>
+          <span class="modal-title">${isEdit ? esc(item.part_number) : `New item — ${esc(proj?.name || '')}`}</span>
           <button class="modal-close">&times;</button>
         </div>
         <div class="modal-body" style="display:flex;flex-direction:column;gap:var(--sp-3);">
           <label style="display:flex;flex-direction:column;gap:4px;">
-            <span class="text-muted" style="font-size:var(--font-xs)">Type</span>
-            <select id="pn-item-type">
-              ${_typeCodes.map(t => `<option value="${attr(t.code)}">${esc(t.code)} — ${esc(t.description)}</option>`).join('')}
-            </select>
+            <span class="text-muted" style="font-size:var(--font-xs)">Category ${isEdit ? '(fixed — part of the number)' : ''}</span>
+            <select id="pn-i-cat"${isEdit ? ' disabled' : ''}>${catOptions}</select>
+            <span class="text-muted" id="pn-i-cat-help" style="font-size:var(--font-xs);"></span>
           </label>
           <label style="display:flex;flex-direction:column;gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Name *</span>
-            <input type="text" id="pn-item-name" placeholder="e.g. Base plate">
+            <input type="text" id="pn-i-name" value="${attr(item?.name || '')}" placeholder="e.g. Base plate">
           </label>
           <label style="display:flex;flex-direction:column;gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Description</span>
-            <input type="text" id="pn-item-desc" placeholder="Optional">
+            <input type="text" id="pn-i-desc" value="${attr(item?.description || '')}" placeholder="Optional">
           </label>
+          <div style="display:flex;gap:var(--sp-3);flex-wrap:wrap;">${attrRows}</div>
           ${manual ? `
           <label style="display:flex;flex-direction:column;gap:4px;">
             <span class="text-muted" style="font-size:var(--font-xs)">Customer part number</span>
-            <input type="text" id="pn-item-cpn" placeholder="Customer's own number — leave blank for none">
+            <input type="text" id="pn-i-cpn" value="${attr(item?.customer_pn || '')}" placeholder="Customer’s own number — leave blank for none">
           </label>` : ''}
-          <div class="text-muted" style="font-size:var(--font-xs);" id="pn-item-preview"></div>
+          ${isEdit ? `
+          <label style="display:flex;flex-direction:column;gap:4px;">
+            <span class="text-muted" style="font-size:var(--font-xs)">Status</span>
+            <select id="pn-i-status">
+              <option value="active"${item.status === 'active' ? ' selected' : ''}>Active</option>
+              <option value="obsolete"${item.status === 'obsolete' ? ' selected' : ''}>Obsolete</option>
+            </select>
+          </label>` : `<div class="text-muted" style="font-size:var(--font-xs);" id="pn-i-preview"></div>`}
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost pn-modal-cancel">Cancel</button>
-          <button class="btn btn-primary" id="pn-item-save">GENERATE</button>
+          <button class="btn btn-primary" id="pn-i-save">${isEdit ? 'SAVE' : 'GENERATE'}</button>
         </div>
       </div>
     </div>`, 'pn-item-backdrop');
 
-  const typeSel = mount.querySelector('#pn-item-type');
-  const preview = mount.querySelector('#pn-item-preview');
-  const updatePreview = () => {
-    preview.textContent =
-      `Number format: ${proj.company_code}-${proj.project_code}-${typeSel.value}-### (assigned on generate)` +
-      (proj.customer_pn_mode === 'template' ? ` · customer PN from template ${proj.customer_pn_template}` : '');
+  const catSel  = mount.querySelector('#pn-i-cat');
+  const catHelp = mount.querySelector('#pn-i-cat-help');
+  const preview = mount.querySelector('#pn-i-preview');
+  const refreshCat = () => {
+    const cat = _categories.find(t => t.code === catSel.value);
+    catHelp.textContent = cat?.covers || '';
+    if (preview && proj) preview.textContent = `Number: ${proj.client?.code}-${proj.code}-${catSel.value}-### (assigned on generate)`;
   };
-  typeSel.addEventListener('change', updatePreview);
-  updatePreview();
-  mount.querySelector('#pn-item-name').focus();
+  catSel.addEventListener('change', refreshCat);
+  refreshCat();
+  mount.querySelector('#pn-i-name').focus();
 
-  mount.querySelector('#pn-item-save').addEventListener('click', async () => {
-    const name = mount.querySelector('#pn-item-name').value.trim();
+  mount.querySelector('#pn-i-save').addEventListener('click', async () => {
+    const name = mount.querySelector('#pn-i-name').value.trim();
     if (!name) { window.showToast?.('Enter an item name', 'error'); return; }
-    const btn = mount.querySelector('#pn-item-save');
+    const btn = mount.querySelector('#pn-i-save');
     btn.disabled = true;
+    const attrVals = {};
+    ATTR_KINDS.forEach(k => { attrVals[k.kind + 'Id'] = mount.querySelector('#pn-i-' + k.kind).value || null; });
     try {
-      const item = await createItem({
-        projectId:   proj.id,
-        typeCode:    typeSel.value,
-        name,
-        description: mount.querySelector('#pn-item-desc').value.trim(),
-        customerPn:  manual ? mount.querySelector('#pn-item-cpn').value.trim() : null,
-      });
-      close();
-      await _loadItems();
-      window.showToast?.(`Created ${item.part_number}`, 'success');
-    } catch (err) {
-      window.showToast?.(err.message, 'error');
-      btn.disabled = false;
-    }
-  });
-}
-
-// ──────────────────────────────────────────────────────────────
-// EDIT ITEM
-// ──────────────────────────────────────────────────────────────
-
-function _openEditItemModal(item) {
-  const proj   = _currentProject();
-  const manual = proj && proj.customer_pn_mode === 'manual';
-  const { mount, close } = _mountModal(`
-    <div class="modal-backdrop" id="pn-edit-backdrop">
-      <div class="modal" id="pn-edit-modal">
-        <div class="modal-header">
-          <span class="modal-title">${esc(item.part_number)}</span>
-          <button class="modal-close">&times;</button>
-        </div>
-        <div class="modal-body" style="display:flex;flex-direction:column;gap:var(--sp-3);">
-          <label style="display:flex;flex-direction:column;gap:4px;">
-            <span class="text-muted" style="font-size:var(--font-xs)">Name *</span>
-            <input type="text" id="pn-edit-name" value="${attr(item.name)}">
-          </label>
-          <label style="display:flex;flex-direction:column;gap:4px;">
-            <span class="text-muted" style="font-size:var(--font-xs)">Description</span>
-            <input type="text" id="pn-edit-desc" value="${attr(item.description || '')}">
-          </label>
-          ${manual ? `
-          <label style="display:flex;flex-direction:column;gap:4px;">
-            <span class="text-muted" style="font-size:var(--font-xs)">Customer part number</span>
-            <input type="text" id="pn-edit-cpn" value="${attr(item.customer_pn || '')}">
-          </label>` : ''}
-          <label style="display:flex;flex-direction:column;gap:4px;">
-            <span class="text-muted" style="font-size:var(--font-xs)">Status</span>
-            <select id="pn-edit-status">
-              <option value="active"${item.status === 'active' ? ' selected' : ''}>Active</option>
-              <option value="obsolete"${item.status === 'obsolete' ? ' selected' : ''}>Obsolete</option>
-            </select>
-          </label>
-          <div class="text-muted" style="font-size:var(--font-xs);">The part number itself can’t be changed — bump the revision or mark obsolete instead.</div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-ghost pn-modal-cancel">Cancel</button>
-          <button class="btn btn-primary" id="pn-edit-save">SAVE</button>
-        </div>
-      </div>
-    </div>`, 'pn-edit-backdrop');
-
-  mount.querySelector('#pn-edit-save').addEventListener('click', async () => {
-    const name = mount.querySelector('#pn-edit-name').value.trim();
-    if (!name) { window.showToast?.('Enter an item name', 'error'); return; }
-    const btn = mount.querySelector('#pn-edit-save');
-    btn.disabled = true;
-    try {
-      const updates = {
-        name,
-        description: mount.querySelector('#pn-edit-desc').value.trim(),
-        status:      mount.querySelector('#pn-edit-status').value,
-      };
-      if (manual) updates.customerPn = mount.querySelector('#pn-edit-cpn').value.trim();
-      await updateItem(item.id, updates);
-      close();
-      await _loadItems();
-      window.showToast?.('Item updated', 'success');
+      if (isEdit) {
+        await updateItem(item.id, {
+          name,
+          description: mount.querySelector('#pn-i-desc').value.trim(),
+          status:      mount.querySelector('#pn-i-status').value,
+          materialId: attrVals.materialId, finishId: attrVals.finishId, vendorId: attrVals.vendorId,
+          fabProcessId: attrVals.fab_processId, colorId: attrVals.colorId,
+          ...(manual ? { customerPn: mount.querySelector('#pn-i-cpn').value.trim() } : {}),
+        });
+        close();
+        await _loadItems();
+        window.showToast?.('Item updated', 'success');
+      } else {
+        const created = await createItem({
+          projectId: _projectId,
+          catCode:   catSel.value,
+          name,
+          description: mount.querySelector('#pn-i-desc').value.trim(),
+          customerPn:  manual ? mount.querySelector('#pn-i-cpn').value.trim() : null,
+          materialId: attrVals.materialId, finishId: attrVals.finishId, vendorId: attrVals.vendorId,
+          fabProcessId: attrVals.fab_processId, colorId: attrVals.colorId,
+        });
+        close();
+        await _loadItems();
+        window.showToast?.(`Created ${created.part_number}`, 'success');
+      }
     } catch (err) {
       window.showToast?.(err.message, 'error');
       btn.disabled = false;
@@ -411,7 +444,7 @@ function _nextRevision(rev) {
   return '';
 }
 
-function _openBumpRevisionModal(item) {
+function _openBumpRevisionModal(item, onDone) {
   const { mount, close } = _mountModal(`
     <div class="modal-backdrop" id="pn-rev-backdrop">
       <div class="modal modal-sm" id="pn-rev-modal">
@@ -426,7 +459,7 @@ function _openBumpRevisionModal(item) {
             <input type="text" id="pn-rev-new" value="${attr(_nextRevision(item.revision))}" maxlength="4" style="text-transform:uppercase;">
           </label>
           <label style="display:flex;flex-direction:column;gap:4px;">
-            <span class="text-muted" style="font-size:var(--font-xs)">Note (why the change?)</span>
+            <span class="text-muted" style="font-size:var(--font-xs)">Note (what changed?)</span>
             <input type="text" id="pn-rev-note" placeholder="e.g. Customer requested slot width change">
           </label>
         </div>
@@ -448,6 +481,7 @@ function _openBumpRevisionModal(item) {
       close();
       await _loadItems();
       window.showToast?.(`${item.part_number} → Rev ${rev}`, 'success');
+      onDone?.();
     } catch (err) {
       window.showToast?.(err.message, 'error');
       btn.disabled = false;
@@ -455,44 +489,121 @@ function _openBumpRevisionModal(item) {
   });
 }
 
-async function _openHistoryModal(item) {
+// ──────────────────────────────────────────────────────────────
+// INFO / COMPARE MODAL
+// ──────────────────────────────────────────────────────────────
+
+function _detailRow(label, value) {
+  return `<tr><td class="text-muted" style="font-size:var(--font-xs);white-space:nowrap;padding-right:var(--sp-3);">${esc(label)}</td>
+              <td style="word-break:break-word;">${value ? esc(value) : '<span class="text-muted">—</span>'}</td></tr>`;
+}
+
+async function _openInfoModal(item) {
+  const proj = _currentProject();
   const { mount } = _mountModal(`
-    <div class="modal-backdrop" id="pn-hist-backdrop">
-      <div class="modal" id="pn-hist-modal">
+    <div class="modal-backdrop" id="pn-info-backdrop">
+      <div class="modal modal-lg" id="pn-info-modal">
         <div class="modal-header">
-          <span class="modal-title">Revision history — ${esc(item.part_number)}</span>
+          <span class="modal-title" style="font-family:var(--font-mono, monospace);">${esc(item.part_number)}</span>
           <button class="modal-close">&times;</button>
         </div>
-        <div class="modal-body" id="pn-hist-body">
-          <div class="empty-state"><div class="empty-state-title">Loading…</div></div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:var(--sp-4);">
+          <div>
+            <table style="width:100%;"><tbody>
+              ${_detailRow('Name', item.name)}
+              ${_detailRow('Description', item.description)}
+              ${_detailRow('Category', `${item.cat_code} — ${item.type?.description || ''}`)}
+              ${proj ? _detailRow('Project', _projLabel(proj)) : ''}
+              ${_detailRow('Customer PN', item.customer_pn)}
+              ${_detailRow('Material', _attrName(item.material_id))}
+              ${_detailRow('Finish', _attrName(item.finish_id))}
+              ${_detailRow('Vendor', _attrName(item.vendor_id))}
+              ${_detailRow('Fabrication Process', _attrName(item.fab_process_id))}
+              ${_detailRow('Color', _attrName(item.color_id))}
+              ${_detailRow('Revision', item.revision)}
+              ${_detailRow('Status', item.status)}
+            </tbody></table>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:var(--sp-2);flex-wrap:wrap;">
+              <strong style="font-size:var(--font-sm);">Revisions</strong>
+              <span style="flex:1;"></span>
+              <span class="text-muted" style="font-size:var(--font-xs);">Compare</span>
+              <select id="pn-cmp-a" style="min-width:90px;"></select>
+              <select id="pn-cmp-b" style="min-width:90px;"></select>
+              <button class="btn btn-ghost btn-sm" id="pn-cmp-go">Compare</button>
+            </div>
+            <div id="pn-rev-list"><div class="empty-state"><div class="empty-state-title">Loading…</div></div></div>
+            <div id="pn-cmp-result" style="margin-top:var(--sp-3);"></div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-ghost pn-modal-cancel">Close</button>
+          <button class="btn btn-primary" id="pn-info-bump">Bump revision</button>
         </div>
       </div>
-    </div>`, 'pn-hist-backdrop');
+    </div>`, 'pn-info-backdrop');
 
-  const body = mount.querySelector('#pn-hist-body');
-  try {
-    const revs = await getRevisions(item.id);
-    const fmtTs = ts => ts
-      ? new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-      : '—';
-    body.innerHTML = revs.length === 0
-      ? `<div class="empty-state"><div class="empty-state-title">No history</div></div>`
-      : `<div class="table-wrapper"><table>
-           <thead><tr><th>Rev</th><th>Note</th><th>By</th><th style="white-space:nowrap;">When</th></tr></thead>
-           <tbody>${revs.map(r => `
-             <tr>
-               <td style="font-weight:500;">${esc(r.revision)}</td>
-               <td style="max-width:260px;word-break:break-word;">${esc(r.note || '—')}</td>
-               <td>${esc(r.actor?.name || '—')}</td>
-               <td style="white-space:nowrap;font-size:var(--font-xs);">${esc(fmtTs(r.changed_at))}</td>
-             </tr>`).join('')}</tbody>
-         </table></div>`;
-  } catch (err) {
-    body.innerHTML = `<div class="empty-state"><div class="empty-state-title">Failed to load history</div><div class="empty-state-sub">${esc(err.message)}</div></div>`;
-  }
+  let revs = [];
+  const load = async () => {
+    try { revs = await getRevisions(item.id); }
+    catch (err) { revs = []; window.showToast?.(err.message, 'error'); }
+    _renderRevList(mount, revs);
+  };
+  await load();
+
+  mount.querySelector('#pn-info-bump').addEventListener('click', () => {
+    // Refresh the current item reference after a bump, then reopen info.
+    _openBumpRevisionModal(item, async () => {
+      const fresh = _items.find(i => i.id === item.id) || item;
+      _openInfoModal(fresh);
+    });
+  });
+
+  mount.querySelector('#pn-cmp-go').addEventListener('click', () => {
+    const a = revs.find(r => r.id === mount.querySelector('#pn-cmp-a').value);
+    const b = revs.find(r => r.id === mount.querySelector('#pn-cmp-b').value);
+    _renderCompare(mount, a, b);
+  });
+}
+
+function _renderRevList(mount, revs) {
+  const list = mount.querySelector('#pn-rev-list');
+  const selA = mount.querySelector('#pn-cmp-a');
+  const selB = mount.querySelector('#pn-cmp-b');
+  const fmtTs = ts => ts ? new Date(ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  if (!revs.length) { list.innerHTML = `<div class="empty-state"><div class="empty-state-title">No history</div></div>`; return; }
+
+  list.innerHTML = `<div class="table-wrapper"><table>
+      <thead><tr><th>Rev</th><th>Note</th><th>By</th><th style="white-space:nowrap;">When</th></tr></thead>
+      <tbody>${revs.map(r => `
+        <tr><td style="font-weight:500;">${esc(r.revision)}</td>
+            <td style="max-width:260px;word-break:break-word;">${esc(r.note || '—')}</td>
+            <td>${esc(r.actor?.name || '—')}</td>
+            <td style="white-space:nowrap;font-size:var(--font-xs);">${esc(fmtTs(r.changed_at))}</td></tr>`).join('')}
+      </tbody></table></div>`;
+
+  const opts = revs.map(r => `<option value="${attr(r.id)}">Rev ${esc(r.revision)}</option>`).join('');
+  selA.innerHTML = opts; selB.innerHTML = opts;
+  if (revs.length > 1) { selA.selectedIndex = 1; selB.selectedIndex = 0; } // older vs newest
+}
+
+function _renderCompare(mount, a, b) {
+  const out = mount.querySelector('#pn-cmp-result');
+  if (!a || !b) { out.innerHTML = `<div class="text-muted" style="font-size:var(--font-xs);">Pick two revisions.</div>`; return; }
+  const sa = a.snapshot || {}, sb = b.snapshot || {};
+  out.innerHTML = `<div class="table-wrapper"><table>
+      <thead><tr><th>Field</th><th>Rev ${esc(a.revision)}</th><th>Rev ${esc(b.revision)}</th></tr></thead>
+      <tbody>${SNAP_FIELDS.map(([key, label]) => {
+        const va = sa[key], vb = sb[key];
+        const diff = (va ?? '') !== (vb ?? '');
+        return `<tr${diff ? ' style="background:var(--warning-bg, rgba(255,152,0,.12));"' : ''}>
+          <td class="text-muted" style="font-size:var(--font-xs);white-space:nowrap;">${esc(label)}</td>
+          <td style="word-break:break-word;">${va ? esc(String(va)) : '<span class="text-muted">—</span>'}</td>
+          <td style="word-break:break-word;">${vb ? esc(String(vb)) : '<span class="text-muted">—</span>'}</td></tr>`;
+      }).join('')}</tbody></table></div>
+      <div class="text-muted" style="font-size:var(--font-xs);margin-top:6px;">Highlighted rows differ between the two revisions.</div>`;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -503,14 +614,9 @@ function _confirmDeleteItem(item) {
   const { mount, close } = _mountModal(`
     <div class="modal-backdrop" id="pn-del-backdrop">
       <div class="modal modal-sm" id="pn-del-modal">
-        <div class="modal-header">
-          <span class="modal-title">Delete item</span>
-          <button class="modal-close">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p style="margin:0;">Delete <strong>${esc(item.part_number)}</strong> (${esc(item.name)})?
-          Its number will <strong>not</strong> be reused. Consider marking it obsolete instead. This cannot be undone.</p>
-        </div>
+        <div class="modal-header"><span class="modal-title">Delete item</span><button class="modal-close">&times;</button></div>
+        <div class="modal-body"><p style="margin:0;">Delete <strong>${esc(item.part_number)}</strong> (${esc(item.name)})?
+          Its number will <strong>not</strong> be reused. Consider marking it obsolete instead. This cannot be undone.</p></div>
         <div class="modal-footer">
           <button class="btn btn-ghost pn-modal-cancel">Cancel</button>
           <button class="btn btn-danger" id="pn-del-confirm">Delete</button>
@@ -521,276 +627,214 @@ function _confirmDeleteItem(item) {
   mount.querySelector('#pn-del-confirm').addEventListener('click', async () => {
     const btn = mount.querySelector('#pn-del-confirm');
     btn.disabled = true;
-    try {
-      await deleteItem(item.id);
-      close();
-      await _loadItems();
-      window.showToast?.('Item deleted', 'success');
-    } catch (err) {
-      window.showToast?.(err.message, 'error');
-      btn.disabled = false;
-    }
+    try { await deleteItem(item.id); close(); await _loadItems(); window.showToast?.('Item deleted', 'success'); }
+    catch (err) { window.showToast?.(err.message, 'error'); btn.disabled = false; }
   });
 }
 
 // ──────────────────────────────────────────────────────────────
-// PROJECTS MANAGER (admin/manager)
+// CATEGORY CODES MANAGER (admin/manager)
 // ──────────────────────────────────────────────────────────────
 
-async function _openProjectsModal() {
-  let projects;
-  try {
-    projects = await getPnProjects({ includeArchived: true });
-  } catch (err) {
-    window.showToast?.(err.message, 'error');
-    return;
-  }
-
-  const modeLabel = p =>
-    p.customer_pn_mode === 'none' ? '—'
-    : p.customer_pn_mode === 'template' ? `Template: ${p.customer_pn_template || ''}`
-    : 'Manual entry';
+async function _openCategoriesModal() {
+  let cats;
+  try { cats = await getCategories({ includeInactive: true }); }
+  catch (err) { window.showToast?.(err.message, 'error'); return; }
 
   const { mount } = _mountModal(`
-    <div class="modal-backdrop" id="pn-proj-backdrop">
-      <div class="modal modal-lg" id="pn-proj-modal">
-        <div class="modal-header">
-          <span class="modal-title">Part-number projects</span>
-          <button class="modal-close">&times;</button>
-        </div>
-        <div class="modal-body">
-          ${projects.length === 0
-            ? `<div class="empty-state"><div class="empty-state-title">No projects yet</div></div>`
-            : `<div class="table-wrapper"><table>
-                 <thead><tr><th>Name</th><th>Code</th><th>Customer PN</th><th>Status</th><th></th></tr></thead>
-                 <tbody>${projects.map(p => `
-                   <tr data-id="${attr(p.id)}"${p.is_archived ? ' style="opacity:.55;"' : ''}>
-                     <td style="font-weight:500;">${esc(p.name)}</td>
-                     <td style="font-family:var(--font-mono, monospace);white-space:nowrap;">${esc(p.company_code)}-${esc(p.project_code)}</td>
-                     <td style="font-size:var(--font-xs);max-width:220px;word-break:break-word;">${esc(modeLabel(p))}</td>
-                     <td>${p.is_archived ? '<span class="badge badge-rejected">archived</span>' : '<span class="badge badge-approved">active</span>'}</td>
-                     <td class="col-actions"><div class="row-actions">
-                       <button class="btn btn-ghost btn-sm act-proj-edit">Edit</button>
-                     </div></td>
-                   </tr>`).join('')}</tbody>
-               </table></div>`}
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-ghost pn-modal-cancel">Close</button>
-          <button class="btn btn-primary" id="pn-proj-new">+ New project</button>
-        </div>
-      </div>
-    </div>`, 'pn-proj-backdrop');
-
-  mount.querySelector('#pn-proj-new').addEventListener('click', () => _openProjectFormModal(null));
-  mount.querySelectorAll('tbody tr').forEach(tr => {
-    const proj = projects.find(p => p.id === tr.dataset.id);
-    if (!proj) return;
-    tr.querySelector('.act-proj-edit')?.addEventListener('click', () => _openProjectFormModal(proj));
-  });
-}
-
-function _openProjectFormModal(proj) {
-  const isNew = !proj;
-  const mode  = proj?.customer_pn_mode || 'none';
-  const { mount, close } = _mountModal(`
-    <div class="modal-backdrop" id="pn-projform-backdrop">
-      <div class="modal" id="pn-projform-modal">
-        <div class="modal-header">
-          <span class="modal-title">${isNew ? 'New part-number project' : `Edit — ${esc(proj.name)}`}</span>
-          <button class="modal-close">&times;</button>
-        </div>
-        <div class="modal-body" style="display:flex;flex-direction:column;gap:var(--sp-3);">
-          <label style="display:flex;flex-direction:column;gap:4px;">
-            <span class="text-muted" style="font-size:var(--font-xs)">Project name *</span>
-            <input type="text" id="pn-pf-name" value="${attr(proj?.name || '')}">
-          </label>
-          <div style="display:flex;gap:var(--sp-3);">
-            <label style="display:flex;flex-direction:column;gap:4px;flex:1;">
-              <span class="text-muted" style="font-size:var(--font-xs)">Company code (CC, 2–4 chars) *</span>
-              <input type="text" id="pn-pf-cc" value="${attr(proj?.company_code || '')}" maxlength="4" style="text-transform:uppercase;" placeholder="e.g. HE">
-            </label>
-            <label style="display:flex;flex-direction:column;gap:4px;flex:1;">
-              <span class="text-muted" style="font-size:var(--font-xs)">Project code (PPP, 2–5 chars) *</span>
-              <input type="text" id="pn-pf-ppp" value="${attr(proj?.project_code || '')}" maxlength="5" style="text-transform:uppercase;" placeholder="e.g. X01">
-            </label>
-          </div>
-          ${isNew ? '' : `<div class="text-muted" style="font-size:var(--font-xs);">⚠ Changing the codes only affects <em>future</em> numbers — already-generated part numbers never change.</div>`}
-          <div style="display:flex;flex-direction:column;gap:4px;">
-            <span class="text-muted" style="font-size:var(--font-xs)">Customer part number</span>
-            <label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="pn-pf-mode" value="none"${mode === 'none' ? ' checked' : ''}> None — internal number only</label>
-            <label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="pn-pf-mode" value="template"${mode === 'template' ? ' checked' : ''}> Generated from a template</label>
-            <label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="pn-pf-mode" value="manual"${mode === 'manual' ? ' checked' : ''}> Entered manually per item</label>
-          </div>
-          <label id="pn-pf-tpl-wrap" style="display:${mode === 'template' ? 'flex' : 'none'};flex-direction:column;gap:4px;">
-            <span class="text-muted" style="font-size:var(--font-xs)">Template * — placeholders: {CC} {PPP} {AA} {SEQ:4} (padded) or {SEQ}</span>
-            <input type="text" id="pn-pf-tpl" value="${attr(proj?.customer_pn_template || '')}" placeholder="e.g. ACME-{PPP}-{SEQ:4}">
-          </label>
-          <label style="display:flex;flex-direction:column;gap:4px;">
-            <span class="text-muted" style="font-size:var(--font-xs)">Notes</span>
-            <input type="text" id="pn-pf-notes" value="${attr(proj?.notes || '')}" placeholder="Optional">
-          </label>
-          ${isNew ? '' : `
-          <label style="display:flex;gap:8px;align-items:center;">
-            <input type="checkbox" id="pn-pf-archived"${proj.is_archived ? ' checked' : ''}>
-            <span>Archived (hidden from the picker; no new numbers)</span>
-          </label>`}
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-ghost pn-modal-cancel">Cancel</button>
-          <button class="btn btn-primary" id="pn-pf-save">${isNew ? 'CREATE' : 'SAVE'}</button>
-        </div>
-      </div>
-    </div>`, 'pn-projform-backdrop');
-
-  // Cancel/close returns to the projects list instead of closing everything.
-  const backToList = () => { _openProjectsModal(); };
-  mount.querySelector('.pn-modal-cancel').addEventListener('click', backToList);
-  mount.querySelector('.modal-close').addEventListener('click', backToList);
-
-  const tplWrap = mount.querySelector('#pn-pf-tpl-wrap');
-  mount.querySelectorAll('input[name="pn-pf-mode"]').forEach(r =>
-    r.addEventListener('change', () => {
-      tplWrap.style.display = r.value === 'template' && r.checked ? 'flex' : 'none';
-    }));
-
-  mount.querySelector('#pn-pf-save').addEventListener('click', async () => {
-    const name = mount.querySelector('#pn-pf-name').value.trim();
-    const cc   = mount.querySelector('#pn-pf-cc').value.trim().toUpperCase();
-    const ppp  = mount.querySelector('#pn-pf-ppp').value.trim().toUpperCase();
-    const selMode = mount.querySelector('input[name="pn-pf-mode"]:checked')?.value || 'none';
-    const tpl  = mount.querySelector('#pn-pf-tpl').value.trim();
-
-    if (!name) { window.showToast?.('Enter a project name', 'error'); return; }
-    if (!/^[A-Z0-9]{2,4}$/.test(cc))  { window.showToast?.('Company code must be 2–4 letters/digits', 'error'); return; }
-    if (!/^[A-Z0-9]{2,5}$/.test(ppp)) { window.showToast?.('Project code must be 2–5 letters/digits', 'error'); return; }
-    if (selMode === 'template' && !tpl) { window.showToast?.('Enter the customer PN template', 'error'); return; }
-
-    const btn = mount.querySelector('#pn-pf-save');
-    btn.disabled = true;
-    try {
-      const fields = {
-        name, companyCode: cc, projectCode: ppp,
-        customerPnMode: selMode,
-        customerPnTemplate: selMode === 'template' ? tpl : null,
-        notes: mount.querySelector('#pn-pf-notes').value.trim(),
-      };
-      if (isNew) {
-        await createPnProject(fields);
-      } else {
-        fields.isArchived = mount.querySelector('#pn-pf-archived').checked;
-        await updatePnProject(proj.id, fields);
-      }
-      close();
-      window.showToast?.(isNew ? 'Project created' : 'Project updated', 'success');
-      await _loadAll();
-    } catch (err) {
-      window.showToast?.(err.message, 'error');
-      btn.disabled = false;
-    }
-  });
-}
-
-// ──────────────────────────────────────────────────────────────
-// TYPE CODES MANAGER (admin/manager)
-// ──────────────────────────────────────────────────────────────
-
-async function _openTypeCodesModal() {
-  let codes;
-  try {
-    codes = await getTypeCodes({ includeInactive: true });
-  } catch (err) {
-    window.showToast?.(err.message, 'error');
-    return;
-  }
-
-  const { mount } = _mountModal(`
-    <div class="modal-backdrop" id="pn-types-backdrop">
-      <div class="modal" id="pn-types-modal">
-        <div class="modal-header">
-          <span class="modal-title">Type codes (AA)</span>
-          <button class="modal-close">&times;</button>
-        </div>
+    <div class="modal-backdrop" id="pn-cats-backdrop">
+      <div class="modal modal-lg" id="pn-cats-modal">
+        <div class="modal-header"><span class="modal-title">Category codes (CAT)</span><button class="modal-close">&times;</button></div>
         <div class="modal-body">
           <div class="text-muted" style="font-size:var(--font-xs);margin-bottom:var(--sp-3);">
-            The 2-digit AA segment says what kind of item a number is. Codes are shared by all projects — pick the description that fits when generating.
+            3-letter codes, frozen into the number at minting. Codes are never deleted once used — deactivate instead (existing numbers stay valid). Descriptions/help are editable anytime.
           </div>
           <div class="table-wrapper"><table>
-            <thead><tr><th>Code</th><th>Description</th><th>Status</th><th></th></tr></thead>
-            <tbody>${codes.map(t => `
+            <thead><tr><th>Code</th><th>Name</th><th>Covers</th><th>Status</th><th></th></tr></thead>
+            <tbody>${cats.map(t => `
               <tr data-code="${attr(t.code)}"${t.is_active ? '' : ' style="opacity:.55;"'}>
                 <td style="font-family:var(--font-mono, monospace);font-weight:500;">${esc(t.code)}</td>
                 <td>${esc(t.description)}</td>
+                <td style="max-width:320px;font-size:var(--font-xs);color:var(--text-muted);word-break:break-word;">${esc(t.covers || '')}</td>
                 <td>${t.is_active ? '<span class="badge badge-approved">active</span>' : '<span class="badge badge-rejected">inactive</span>'}</td>
                 <td class="col-actions"><div class="row-actions">
-                  <button class="btn btn-ghost btn-sm act-type-edit">Edit</button>
-                  <button class="btn btn-ghost btn-sm act-type-toggle">${t.is_active ? 'Deactivate' : 'Activate'}</button>
+                  <button class="btn btn-ghost btn-sm act-cat-edit">Edit</button>
+                  <button class="btn btn-ghost btn-sm act-cat-toggle">${t.is_active ? 'Deactivate' : 'Activate'}</button>
                 </div></td>
               </tr>`).join('')}</tbody>
           </table></div>
           <div style="display:flex;gap:8px;margin-top:var(--sp-3);align-items:center;flex-wrap:wrap;">
-            <input type="text" id="pn-tc-code" placeholder="Code (2 digits)" maxlength="2" style="width:120px;">
-            <input type="text" id="pn-tc-desc" placeholder="Description" style="flex:1;min-width:180px;">
-            <button class="btn btn-primary" id="pn-tc-add">ADD</button>
+            <input type="text" id="pn-c-code" placeholder="Code (3 letters)" maxlength="3" style="width:130px;text-transform:uppercase;">
+            <input type="text" id="pn-c-name" placeholder="Name" style="width:180px;">
+            <input type="text" id="pn-c-covers" placeholder="Covers (help text)" style="flex:1;min-width:200px;">
+            <button class="btn btn-primary" id="pn-c-add">ADD</button>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn-ghost pn-modal-cancel">Close</button>
-        </div>
+        <div class="modal-footer"><button class="btn btn-ghost pn-modal-cancel">Close</button></div>
       </div>
-    </div>`, 'pn-types-backdrop');
+    </div>`, 'pn-cats-backdrop');
 
-  // The add row doubles as the edit row: clicking Edit loads the code
-  // (locked) + description into it and the button becomes SAVE.
   let editing = null;
-  const codeEl = mount.querySelector('#pn-tc-code');
-  const descEl = mount.querySelector('#pn-tc-desc');
-  const addBtn = mount.querySelector('#pn-tc-add');
+  const codeEl = mount.querySelector('#pn-c-code');
+  const nameEl = mount.querySelector('#pn-c-name');
+  const covEl  = mount.querySelector('#pn-c-covers');
+  const addBtn = mount.querySelector('#pn-c-add');
 
   addBtn.addEventListener('click', async () => {
-    const code = codeEl.value.trim();
-    const desc = descEl.value.trim();
-    if (!editing && !/^[0-9]{2}$/.test(code)) { window.showToast?.('Code must be exactly 2 digits', 'error'); return; }
-    if (!desc) { window.showToast?.('Enter a description', 'error'); return; }
+    const code = codeEl.value.trim().toUpperCase();
+    const name = nameEl.value.trim();
+    const covers = covEl.value.trim();
+    if (!editing && !/^[A-Z]{3}$/.test(code)) { window.showToast?.('Code must be exactly 3 letters', 'error'); return; }
+    if (!name) { window.showToast?.('Enter a name', 'error'); return; }
     addBtn.disabled = true;
     try {
-      if (editing) {
-        await updateTypeCode(editing, { description: desc });
-        window.showToast?.(`Type code ${editing} updated`, 'success');
-      } else {
-        await createTypeCode({ code, description: desc, sortOrder: parseInt(code, 10) });
-        window.showToast?.(`Type code ${code} added`, 'success');
-      }
-      _typeCodes = await getTypeCodes();
-      _renderTypeFilter();
-      _renderTable();
-      _openTypeCodesModal();   // refresh the list in place
-    } catch (err) {
-      window.showToast?.(err.message, 'error');
-      addBtn.disabled = false;
-    }
+      if (editing) { await updateCategory(editing, { description: name, covers }); window.showToast?.(`${editing} updated`, 'success'); }
+      else { await createCategory({ code, description: name, covers, sortOrder: 99 }); window.showToast?.(`${code} added`, 'success'); }
+      _categories = await getCategories();
+      _renderCatFilter();
+      _openCategoriesModal();
+    } catch (err) { window.showToast?.(err.message, 'error'); addBtn.disabled = false; }
   });
 
   mount.querySelectorAll('tbody tr').forEach(tr => {
-    const tc = codes.find(c => c.code === tr.dataset.code);
-    if (!tc) return;
-    tr.querySelector('.act-type-edit')?.addEventListener('click', () => {
-      editing = tc.code;
-      codeEl.value = tc.code;
-      codeEl.disabled = true;
-      descEl.value = tc.description;
-      addBtn.textContent = 'SAVE';
-      descEl.focus();
+    const t = cats.find(c => c.code === tr.dataset.code);
+    if (!t) return;
+    tr.querySelector('.act-cat-edit')?.addEventListener('click', () => {
+      editing = t.code; codeEl.value = t.code; codeEl.disabled = true;
+      nameEl.value = t.description; covEl.value = t.covers || '';
+      addBtn.textContent = 'SAVE'; nameEl.focus();
     });
-    tr.querySelector('.act-type-toggle')?.addEventListener('click', async () => {
-      try {
-        await updateTypeCode(tc.code, { isActive: !tc.is_active });
-        _typeCodes = await getTypeCodes();
-        _renderTypeFilter();
-        _openTypeCodesModal();
-      } catch (err) {
-        window.showToast?.(err.message, 'error');
-      }
+    tr.querySelector('.act-cat-toggle')?.addEventListener('click', async () => {
+      try { await updateCategory(t.code, { isActive: !t.is_active }); _categories = await getCategories(); _renderCatFilter(); _openCategoriesModal(); }
+      catch (err) { window.showToast?.(err.message, 'error'); }
     });
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// ATTRIBUTE LISTS MANAGER (admin/manager)
+// ──────────────────────────────────────────────────────────────
+
+async function _openAttributesModal(activeKind) {
+  const kind = activeKind || ATTR_KINDS[0].kind;
+  let list;
+  try { list = await getAttributes({ kind, includeInactive: true }); }
+  catch (err) { window.showToast?.(err.message, 'error'); return; }
+
+  const tabs = ATTR_KINDS.map(k =>
+    `<button class="btn btn-sm ${k.kind === kind ? 'btn-primary' : 'btn-ghost'} pn-attr-tab" data-kind="${k.kind}">${esc(k.label)}</button>`).join('');
+
+  const { mount } = _mountModal(`
+    <div class="modal-backdrop" id="pn-attrs-backdrop">
+      <div class="modal modal-lg" id="pn-attrs-modal">
+        <div class="modal-header"><span class="modal-title">Attribute lists</span><button class="modal-close">&times;</button></div>
+        <div class="modal-body">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:var(--sp-3);">${tabs}</div>
+          <div class="table-wrapper"><table>
+            <thead><tr><th>Name</th><th>Status</th><th></th></tr></thead>
+            <tbody>${list.length ? list.map(a => `
+              <tr data-id="${attr(a.id)}"${a.is_active ? '' : ' style="opacity:.55;"'}>
+                <td>${esc(a.name)}</td>
+                <td>${a.is_active ? '<span class="badge badge-approved">active</span>' : '<span class="badge badge-rejected">inactive</span>'}</td>
+                <td class="col-actions"><div class="row-actions">
+                  <button class="btn btn-ghost btn-sm act-attr-edit">Rename</button>
+                  <button class="btn btn-ghost btn-sm act-attr-toggle">${a.is_active ? 'Deactivate' : 'Activate'}</button>
+                </div></td>
+              </tr>`).join('') : `<tr><td colspan="3" class="text-muted" style="padding:var(--sp-3);">No entries yet.</td></tr>`}</tbody>
+          </table></div>
+          <div style="display:flex;gap:8px;margin-top:var(--sp-3);align-items:center;flex-wrap:wrap;">
+            <input type="text" id="pn-a-name" placeholder="Add to “${esc(ATTR_KINDS.find(k => k.kind === kind).label)}”" style="flex:1;min-width:200px;">
+            <button class="btn btn-primary" id="pn-a-add">ADD</button>
+          </div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-ghost pn-modal-cancel">Close</button></div>
+      </div>
+    </div>`, 'pn-attrs-backdrop');
+
+  mount.querySelectorAll('.pn-attr-tab').forEach(b =>
+    b.addEventListener('click', () => _openAttributesModal(b.dataset.kind)));
+
+  let editing = null;
+  const nameEl = mount.querySelector('#pn-a-name');
+  const addBtn = mount.querySelector('#pn-a-add');
+  const reload = async () => {
+    const all = await getAttributes({});
+    _attrs = {};
+    ATTR_KINDS.forEach(k => { _attrs[k.kind] = all.filter(a => a.kind === k.kind); });
+    _openAttributesModal(kind);
+  };
+
+  addBtn.addEventListener('click', async () => {
+    const name = nameEl.value.trim();
+    if (!name) { window.showToast?.('Enter a name', 'error'); return; }
+    addBtn.disabled = true;
+    try {
+      if (editing) { await updateAttribute(editing, { name }); window.showToast?.('Updated', 'success'); }
+      else { await createAttribute({ kind, name, sortOrder: 99 }); window.showToast?.('Added', 'success'); }
+      await reload();
+    } catch (err) { window.showToast?.(err.message, 'error'); addBtn.disabled = false; }
+  });
+
+  mount.querySelectorAll('tbody tr').forEach(tr => {
+    const a = list.find(x => x.id === tr.dataset.id);
+    if (!a) return;
+    tr.querySelector('.act-attr-edit')?.addEventListener('click', () => {
+      editing = a.id; nameEl.value = a.name; addBtn.textContent = 'SAVE'; nameEl.focus();
+    });
+    tr.querySelector('.act-attr-toggle')?.addEventListener('click', async () => {
+      try { await updateAttribute(a.id, { isActive: !a.is_active }); await reload(); }
+      catch (err) { window.showToast?.(err.message, 'error'); }
+    });
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// CUSTOMER-PN CONFIG (admin/manager) — per selected project
+// ──────────────────────────────────────────────────────────────
+
+function _openConfigModal() {
+  const proj = _currentProject();
+  if (!proj) { window.showToast?.('Select a project first', 'error'); return; }
+  const mode = _config?.customer_pn_mode || 'none';
+
+  const { mount, close } = _mountModal(`
+    <div class="modal-backdrop" id="pn-cfg-backdrop">
+      <div class="modal" id="pn-cfg-modal">
+        <div class="modal-header"><span class="modal-title">Customer PN — ${esc(proj.name)}</span><button class="modal-close">&times;</button></div>
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:var(--sp-3);">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="pn-cfg-mode" value="none"${mode === 'none' ? ' checked' : ''}> None — internal number only</label>
+            <label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="pn-cfg-mode" value="template"${mode === 'template' ? ' checked' : ''}> Generated from a template</label>
+            <label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="pn-cfg-mode" value="manual"${mode === 'manual' ? ' checked' : ''}> Entered manually per item</label>
+          </div>
+          <label id="pn-cfg-tpl-wrap" style="display:${mode === 'template' ? 'flex' : 'none'};flex-direction:column;gap:4px;">
+            <span class="text-muted" style="font-size:var(--font-xs)">Template * — placeholders: {CC} {PPP} {AA} {SEQ:4} (padded) or {SEQ}</span>
+            <input type="text" id="pn-cfg-tpl" value="${attr(_config?.customer_pn_template || '')}" placeholder="e.g. ACME-{PPP}-{SEQ:4}">
+          </label>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost pn-modal-cancel">Cancel</button>
+          <button class="btn btn-primary" id="pn-cfg-save">SAVE</button>
+        </div>
+      </div>
+    </div>`, 'pn-cfg-backdrop');
+
+  const tplWrap = mount.querySelector('#pn-cfg-tpl-wrap');
+  mount.querySelectorAll('input[name="pn-cfg-mode"]').forEach(r =>
+    r.addEventListener('change', () => { tplWrap.style.display = r.value === 'template' && r.checked ? 'flex' : 'none'; }));
+
+  mount.querySelector('#pn-cfg-save').addEventListener('click', async () => {
+    const selMode = mount.querySelector('input[name="pn-cfg-mode"]:checked')?.value || 'none';
+    const tpl = mount.querySelector('#pn-cfg-tpl').value.trim();
+    if (selMode === 'template' && !tpl) { window.showToast?.('Enter the customer PN template', 'error'); return; }
+    const btn = mount.querySelector('#pn-cfg-save');
+    btn.disabled = true;
+    try {
+      await upsertProjectConfig(_projectId, { mode: selMode, template: tpl });
+      close();
+      await _loadConfig();
+      _renderTable();
+      window.showToast?.('Customer PN settings saved', 'success');
+    } catch (err) { window.showToast?.(err.message, 'error'); btn.disabled = false; }
   });
 }
