@@ -106,7 +106,7 @@ function _wireControls(canManage) {
   c.querySelector('#pn-new-item').addEventListener('click', () => { if (_canMint()) _openItemModal(null); });
   if (canManage) {
     c.querySelector('#pn-manage-cats').addEventListener('click', _openCategoriesModal);
-    c.querySelector('#pn-manage-attrs').addEventListener('click', _openAttributesModal);
+    c.querySelector('#pn-manage-attrs').addEventListener('click', () => _openAttributesModal());
     c.querySelector('#pn-manage-config').addEventListener('click', _openConfigModal);
   }
 }
@@ -745,7 +745,9 @@ async function _openCategoriesModal() {
 // ──────────────────────────────────────────────────────────────
 
 async function _openAttributesModal(activeKind) {
-  const kind = activeKind || ATTR_KINDS[0].kind;
+  // Guard: the click handler may pass an event; only accept a real kind string.
+  const kind = (typeof activeKind === 'string' && ATTR_KINDS.some(k => k.kind === activeKind))
+    ? activeKind : ATTR_KINDS[0].kind;
   let list;
   try { list = await getAttributes({ kind, includeInactive: true }); }
   catch (err) { window.showToast?.(err.message, 'error'); return; }
