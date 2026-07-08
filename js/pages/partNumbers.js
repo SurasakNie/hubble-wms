@@ -273,8 +273,8 @@ function _renderTable() {
               ${showCustomer ? `<td style="font-family:var(--font-mono, monospace);white-space:nowrap;">${esc(it.customer_pn || '—')}</td>` : ''}
               <td style="max-width:240px;word-break:break-word;">${esc(it.name)}</td>
               <td><span class="text-muted" style="font-size:var(--font-xs);white-space:nowrap;">${esc(it.cat_code)} — ${esc(it.type?.description || '')}</span></td>
-              <td style="font-size:var(--font-sm);">${esc(_attrName(it.material_id) || '—')}</td>
-              <td style="font-size:var(--font-sm);">${esc(_attrName(it.finish_id) || '—')}</td>
+              <td style="font-size:var(--font-sm);">${esc(_attrName(it.material_id) || 'TBD')}</td>
+              <td style="font-size:var(--font-sm);">${esc(_attrName(it.finish_id) || 'TBD')}</td>
               <td>${esc(it.revision)}</td>
               <td><span class="badge ${it.status === 'active' ? 'badge-approved' : 'badge-rejected'}">${esc(it.status)}</span></td>
               <td style="white-space:nowrap;font-size:var(--font-xs);">${esc(fmtDate(it.updated_at || it.created_at))}</td>
@@ -317,7 +317,7 @@ function _mountModal(html, backdropId) {
 function _attrSelectHtml(id, kind, selectedId) {
   const opts = (_attrs[kind] || []).map(a =>
     `<option value="${attr(a.id)}"${a.id === selectedId ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
-  return `<select id="${id}"><option value="">— none —</option>${opts}</select>`;
+  return `<select id="${id}"><option value="">TBD</option>${opts}</select>`;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -515,11 +515,11 @@ async function _openInfoModal(item) {
               ${_detailRow('Category', `${item.cat_code} — ${item.type?.description || ''}`)}
               ${proj ? _detailRow('Project', _projLabel(proj)) : ''}
               ${_detailRow('Customer PN', item.customer_pn)}
-              ${_detailRow('Material', _attrName(item.material_id))}
-              ${_detailRow('Finish', _attrName(item.finish_id))}
-              ${_detailRow('Vendor', _attrName(item.vendor_id))}
-              ${_detailRow('Fabrication Process', _attrName(item.fab_process_id))}
-              ${_detailRow('Color', _attrName(item.color_id))}
+              ${_detailRow('Material', _attrName(item.material_id) || 'TBD')}
+              ${_detailRow('Finish', _attrName(item.finish_id) || 'TBD')}
+              ${_detailRow('Vendor', _attrName(item.vendor_id) || 'TBD')}
+              ${_detailRow('Fabrication Process', _attrName(item.fab_process_id) || 'TBD')}
+              ${_detailRow('Color', _attrName(item.color_id) || 'TBD')}
               ${_detailRow('Revision', item.revision)}
               ${_detailRow('Status', item.status)}
             </tbody></table>
