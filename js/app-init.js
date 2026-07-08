@@ -409,7 +409,7 @@ window.showToast = function(msg, type = 'info') {
 // ── Page routes ──────────────────────────────────────────────
 // Version query busts the browser cache so a hard refresh always loads the latest page JS.
 // Bump this alongside the CSS ?v= when page modules change.
-const V = '?v=117';
+const V = '?v=118';
 const pages = {
   '#client-portal': () => import('./pages/clientPortal.js' + V),
   '#tracker':   () => import('./pages/tracker.js'   + V),
