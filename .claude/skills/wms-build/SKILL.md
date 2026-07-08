@@ -50,6 +50,8 @@ These come from `CLAUDE.md` — re-check it if anything here looks stale.
 
 ## Current baseline (keep in sync via `close` mode)
 
-After **Round 46** (wms-build skill to repo + global behavioral contract, 2026-06-30):
-working **JS `?v=109`**, **CSS `?v=38`**, **tokens.css `?v=22`**. Next session
-bumps from `v=109`. This is the single source of truth the `close` mode advances.
+After **Round 54** (Part Number Generator, 2026-07-07):
+working **JS `?v=116`**, **CSS `?v=39`**, **tokens.css `?v=22`**. Next session
+bumps from `v=116`. This is the single source of truth the `close` mode advances.
+🟡 Open follow-up: **PN v2 — rework the AA type-code scheme** (flat code+description
+list today, no rule for which code a new item gets; user flagged as "still not great").

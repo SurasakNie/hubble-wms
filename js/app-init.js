@@ -136,7 +136,7 @@ showMoreBtn?.addEventListener('click', () => {
 });
 
 // Auto-expand SHOW MORE when navigating directly to a WMS route
-const wmsRoutes = new Set(['#employees', '#holidays', '#requests', '#expenses', '#evaluation', '#documents', '#help', '#admin-logs']);
+const wmsRoutes = new Set(['#employees', '#holidays', '#requests', '#expenses', '#evaluation', '#documents', '#help', '#admin-logs', '#part-numbers']);
 const currentHash = window.location.hash.split('?')[0];
 if (wmsRoutes.has(currentHash)) _setWmsExpanded(true);
 
@@ -409,7 +409,7 @@ window.showToast = function(msg, type = 'info') {
 // ── Page routes ──────────────────────────────────────────────
 // Version query busts the browser cache so a hard refresh always loads the latest page JS.
 // Bump this alongside the CSS ?v= when page modules change.
-const V = '?v=115';
+const V = '?v=116';
 const pages = {
   '#client-portal': () => import('./pages/clientPortal.js' + V),
   '#tracker':   () => import('./pages/tracker.js'   + V),
@@ -429,6 +429,7 @@ const pages = {
   '#documents': () => import('./pages/documents.js'  + V),
   '#help':       () => import('./pages/help.js'       + V),
   '#admin-logs': () => import('./pages/adminLogs.js'  + V),
+  '#part-numbers': () => import('./pages/partNumbers.js' + V),
 };
 
 // Route-role matrix — defence-in-depth that mirrors the nav visibility rules
