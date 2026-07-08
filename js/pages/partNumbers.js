@@ -36,6 +36,7 @@ let _categories = [];
 let _attrs      = {};      // { material: [...], finish: [...], ... }
 let _config     = null;    // current project's pn_project_config (or null → none)
 let _items      = [];
+let _clientId   = '';
 let _projectId  = null;
 let _catFilter  = '';
 let _search     = '';
@@ -59,6 +60,7 @@ export async function render() {
 
   document.getElementById('content').innerHTML = `
     <div class="filter-bar" style="flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:var(--sp-4);">
+      <select id="pn-client" style="min-width:180px;"></select>
       <select id="pn-project" style="min-width:240px;"></select>
       <select id="pn-cat-filter" style="min-width:200px;"></select>
       <div class="search-input">
@@ -86,6 +88,14 @@ export async function render() {
 
 function _wireControls(canManage) {
   const c = document.getElementById('content');
+  c.querySelector('#pn-client').addEventListener('change', async e => {
+    _clientId = e.target.value || '';
+    const cur = _currentProject();
+    if (_clientId && cur && cur.client?.id !== _clientId) _projectId = null;
+    _renderProjectSelect();
+    await _loadConfig();
+    await _loadItems();
+  });
   c.querySelector('#pn-project').addEventListener('change', async e => {
     _projectId = e.target.value || null;
     await _loadConfig();
@@ -116,6 +126,10 @@ async function _loadAll() {
   }
   if (_projectId && !_projects.some(p => p.id === _projectId)) _projectId = null;
   if (!_projectId && _projects.length === 1) _projectId = _projects[0].id;
+  // Sync the client filter to the selected project (e.g. deep-link from Projects).
+  const selP = _projects.find(p => p.id === _projectId);
+  if (selP?.client) _clientId = selP.client.id;
+  _renderClientSelect();
   _renderProjectSelect();
   _renderCatFilter();
   await _loadConfig();
@@ -169,11 +183,26 @@ function _projLabel(p) {
 // FILTER BAR RENDER
 // ──────────────────────────────────────────────────────────────
 
+function _clientsFromProjects() {
+  const seen = new Map();
+  _projects.forEach(p => { if (p.client) seen.set(p.client.id, p.client); });
+  return [...seen.values()].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+}
+
+function _renderClientSelect() {
+  const sel = document.getElementById('pn-client');
+  if (!sel) return;
+  sel.innerHTML = `<option value="">All clients</option>` +
+    _clientsFromProjects().map(cl =>
+      `<option value="${attr(cl.id)}"${cl.id === _clientId ? ' selected' : ''}>${esc(cl.name)}${cl.code ? ` (${esc(cl.code)})` : ''}</option>`).join('');
+}
+
 function _renderProjectSelect() {
   const sel = document.getElementById('pn-project');
   if (!sel) return;
+  const list = _clientId ? _projects.filter(p => p.client?.id === _clientId) : _projects;
   sel.innerHTML = `<option value="">— Select project —</option>` +
-    _projects.map(p =>
+    list.map(p =>
       `<option value="${attr(p.id)}"${p.id === _projectId ? ' selected' : ''}>${esc(_projLabel(p))}</option>`).join('');
 }
 
