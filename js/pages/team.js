@@ -765,7 +765,7 @@ function _renderGmBody(group, deptFilter) {
     <div style="margin-bottom:var(--sp-2);">
       <select id="tm-gm-dept" style="width:100%;font-size:var(--font-sm);">
         <option value="">All departments</option>
-        ${deptCodes.map(code => `<option value="${code}"${activeDept === code ? ' selected' : ''}>${deptLabels[code]}</option>`).join('')}
+        ${deptCodes.map(code => `<option value="${attr(code)}"${activeDept === code ? ' selected' : ''}>${esc(deptLabels[code])}</option>`).join('')}
       </select>
     </div>` : '';
 

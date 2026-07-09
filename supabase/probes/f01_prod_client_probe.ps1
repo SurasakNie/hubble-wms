@@ -202,7 +202,19 @@ $mustZeroTables = @(
   'evaluation_cycles',
   'evaluation_questions',
   'evaluation_responses',
-  'login_attempts'
+  'login_attempts',
+  # Round 54 (20260710_client_block_expanded.sql) additions
+  'evaluations',
+  'employee_documents',
+  'employee_audit_log',
+  'leave_balances',
+  'flex_holiday_swaps',
+  'job_title_change_requests',
+  'name_change_requests',
+  'deletion_requests',
+  'travel_claims',
+  'project_assignments',
+  'groups'
 )
 foreach ($table in $mustZeroTables) {
   Check-MustZero $table $table

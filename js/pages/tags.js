@@ -4,7 +4,7 @@
 
 import { getTags, createTag, updateTag, deleteTag, getTagUsage } from '../api/tags.js';
 import { isAdmin } from '../auth.js';
-import { esc, attr } from '../format.js';
+import { esc, attr, safeColor } from '../format.js';
 
 // 12 base hues from tokens.css + 12 darker variants (Material 700/800), all distinct.
 const TAG_COLORS = [
@@ -177,7 +177,7 @@ function _renderRow(t, admin) {
     <tr data-id="${t.id}">
       <td style="font-weight:500;">
         <span style="display:inline-flex; align-items:center; gap:8px;">
-          <span style="width:12px; height:12px; border-radius:50%; background:${attr(color)}; flex:none;"></span>
+          <span style="width:12px; height:12px; border-radius:50%; background:${safeColor(color)}; flex:none;"></span>
           ${esc(t.name || '')}
         </span>
       </td>

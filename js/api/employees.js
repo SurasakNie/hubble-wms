@@ -1,6 +1,7 @@
 // api/employees.js — CRUD for employees, compensation, documents, skills, audit log
 
 import { supabase } from '../config.js';
+import { toISODate } from '../format.js';
 
 // ── SELECT constants ──────────────────────────────────────────
 
@@ -292,7 +293,7 @@ export async function getExpiringDocuments(withinDays = 90) {
       employee:employees(id, employee_id, full_name)
     `)
     .not('expiry_date', 'is', null)
-    .lte('expiry_date', cutoff.toISOString().split('T')[0])
+    .lte('expiry_date', toISODate(cutoff))
     .order('expiry_date');
   if (error) throw error;
   return data || [];

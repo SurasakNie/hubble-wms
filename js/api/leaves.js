@@ -177,6 +177,8 @@ export async function submitLeaveRequest({
 
 export async function approveLeaveRequest(id, managerEmployeeId, notes, approvalTiers = 1) {
   const newStatus = (approvalTiers >= 2) ? 'manager_approved' : 'approved';
+  // Guard on the prior status so a retried/duplicated call is a no-op rather than
+  // re-stamping an already-decided request. Manager approval only advances a pending row.
   const { data, error } = await supabase
     .from('leave_requests')
     .update({
@@ -186,13 +188,16 @@ export async function approveLeaveRequest(id, managerEmployeeId, notes, approval
       manager_notes:        notes || null,
     })
     .eq('id', id)
+    .eq('status', 'pending')
     .select(REQUEST_SELECT)
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('This request was already updated — refresh and try again.');
   return data;
 }
 
 export async function hrApproveLeaveRequest(id, hrEmployeeId, notes) {
+  // HR second-tier sign-off only advances a manager-approved row.
   const { data, error } = await supabase
     .from('leave_requests')
     .update({
@@ -202,20 +207,25 @@ export async function hrApproveLeaveRequest(id, hrEmployeeId, notes) {
       hr_notes:        notes || null,
     })
     .eq('id', id)
+    .eq('status', 'manager_approved')
     .select(REQUEST_SELECT)
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('This request was already updated — refresh and try again.');
   return data;
 }
 
 export async function rejectLeaveRequest(id, reason) {
+  // Only a still-open request (pending or awaiting HR) can be rejected.
   const { data, error } = await supabase
     .from('leave_requests')
     .update({ status: 'rejected', rejection_reason: reason })
     .eq('id', id)
+    .in('status', ['pending', 'manager_approved'])
     .select(REQUEST_SELECT)
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('This request was already updated — refresh and try again.');
   return data;
 }
 
@@ -274,6 +284,7 @@ export async function submitFlexSwap({ employeeId, waivedHolidayId, substituteDa
 }
 
 export async function approveFlexSwap(id, managerEmployeeId, notes) {
+  // Only a pending swap can be approved; a retry against an already-decided row no-ops.
   const { data, error } = await supabase
     .from('flex_holiday_swaps')
     .update({
@@ -283,9 +294,11 @@ export async function approveFlexSwap(id, managerEmployeeId, notes) {
       manager_notes:        notes || null,
     })
     .eq('id', id)
+    .eq('status', 'pending')
     .select(FLEX_SELECT)
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('This swap was already updated — refresh and try again.');
   return data;
 }
 
@@ -294,9 +307,11 @@ export async function rejectFlexSwap(id, reason) {
     .from('flex_holiday_swaps')
     .update({ status: 'rejected', manager_notes: reason })
     .eq('id', id)
+    .eq('status', 'pending')
     .select(FLEX_SELECT)
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('This swap was already updated — refresh and try again.');
   return data;
 }
 

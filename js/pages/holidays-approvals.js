@@ -458,7 +458,7 @@ export function renderTeamBalance(wrap) {
 
     <div style="max-width:360px;margin-bottom:24px;">
       <label class="form-label">Employee
-        ${empSelectHtml('hl-tb', activeEmps, { selectedId: S.teamBalEmpId })}
+        ${empSelectHtml('hl-tb', S.employees, { selectedId: S.teamBalEmpId })}
       </label>
     </div>
 
@@ -485,7 +485,7 @@ export function renderTeamBalance(wrap) {
     renderTeamBalance(wrap);
   });
 
-  wireEmpSelect('hl-tb', activeEmps, emp => {
+  wireEmpSelect('hl-tb', S.employees, emp => {
     S.teamBalEmpId = emp?.id ?? null;
     renderTeamBalance(wrap);
   });

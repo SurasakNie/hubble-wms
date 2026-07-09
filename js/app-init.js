@@ -86,8 +86,9 @@ sidebarEl?.querySelectorAll('.nav-item').forEach(link => {
   });
 });
 
-// Esc closes the topmost open modal (any .modal-backdrop). Capture phase so it runs
-// before a modal's own Esc handler (e.g. confirmModal) and only the top one closes.
+// Esc closes the topmost open modal (any .modal-backdrop) by clicking it, which
+// every modal's backdrop-click-to-close handler resolves as a cancel. Per the
+// house Modal Pattern, no modal should register its own Esc handler.
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   const backs = document.querySelectorAll('.modal-backdrop');
@@ -409,7 +410,7 @@ window.showToast = function(msg, type = 'info') {
 // ── Page routes ──────────────────────────────────────────────
 // Version query busts the browser cache so a hard refresh always loads the latest page JS.
 // Bump this alongside the CSS ?v= when page modules change.
-const V = '?v=120';
+const V = '?v=121';
 const pages = {
   '#client-portal': () => import('./pages/clientPortal.js' + V),
   '#tracker':   () => import('./pages/tracker.js'   + V),

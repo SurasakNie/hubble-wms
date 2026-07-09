@@ -11,10 +11,14 @@
 #   OWN SCOPE  — get_client_project_summary returns ≥0 rows (all own company)
 #   OWN SCOPE  — cash_transactions (out), travel_requests return rows only for own projects
 #   OWN ONLY   — profiles returns exactly 1 row (own auth.uid())
-#   ZERO       — time_entries, leave_requests, employees, compensation_records,
+#   ZERO       — time_entries, leave_requests, employees, employee_compensation,
 #                petty_cash_settings, document_templates, group_members,
 #                task_assignments, evaluation_cycles, evaluation_questions,
-#                evaluation_responses all return 0 rows
+#                evaluation_responses, evaluations, employee_documents,
+#                employee_audit_log, leave_balances, flex_holiday_swaps,
+#                job_title_change_requests, name_change_requests,
+#                deletion_requests, travel_claims, project_assignments,
+#                groups all return 0 rows
 #   WRITE DENY — INSERT into projects returns 4xx
 
 set -euo pipefail
@@ -234,7 +238,7 @@ echo "── 2. Employee PII / internal tables (must be 0) ───────
 check_zero "time_entries"        "time_entries"
 check_zero "leave_requests"      "leave_requests"
 check_zero "employees"           "employees"
-check_zero "compensation_records" "compensation_records"
+check_zero "employee_compensation" "employee_compensation"
 check_zero "petty_cash_settings" "petty_cash_settings"
 check_zero "document_templates"  "document_templates"
 check_zero "group_members"       "group_members"
@@ -243,6 +247,18 @@ check_zero "evaluation_cycles"   "evaluation_cycles"
 check_zero "evaluation_questions" "evaluation_questions"
 check_zero "evaluation_responses" "evaluation_responses"
 check_zero "login_attempts"      "login_attempts"
+# Round 54 (20260710_client_block_expanded.sql) additions
+check_zero "evaluations"                 "evaluations"
+check_zero "employee_documents"          "employee_documents"
+check_zero "employee_audit_log"          "employee_audit_log"
+check_zero "leave_balances"              "leave_balances"
+check_zero "flex_holiday_swaps"          "flex_holiday_swaps"
+check_zero "job_title_change_requests"   "job_title_change_requests"
+check_zero "name_change_requests"        "name_change_requests"
+check_zero "deletion_requests"           "deletion_requests"
+check_zero "travel_claims"               "travel_claims"
+check_zero "project_assignments"         "project_assignments"
+check_zero "groups"                      "groups"
 check_view_blocked "client_project_totals (view)" "client_project_totals"
 
 echo ""

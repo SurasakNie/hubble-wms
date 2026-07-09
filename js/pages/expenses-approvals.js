@@ -7,7 +7,7 @@ import { supabase } from '../config.js';
 import { logAction } from '../api/auditLog.js';
 import {
   getAllTransactions, approveTransaction, rejectTransaction, overrideTransactionStatus, updateTransaction, cancelTransaction,
-  getAllTravelClaims, approveTravelClaim, rejectTravelClaim, updateTravelClaim, cancelTravelClaim,
+  getAllTravelClaims, approveTravelClaim, rejectTravelClaim, overrideTravelClaimStatus, updateTravelClaim, cancelTravelClaim,
   getAllTripRequests, approveTripRequest, rejectTripRequest, completeTripRequest, overrideTripStatus, updateTripRequest, cancelTripRequest,
   approveSettlement,
 } from '../api/expenses.js';
@@ -553,7 +553,7 @@ function _openOverrideModal(kind, id) {
       if (kind === 'exp')   await overrideTransactionStatus(id, status);
       if (kind === 'claim') {
         if (status === 'cancelled') await cancelTravelClaim(id);
-        else await approveTravelClaim(id, status === 'approved' ? 'finance' : 'manager', S.profile.id).catch(async () => {});
+        else await overrideTravelClaimStatus(id, status);
       }
       if (kind === 'trip')  await overrideTripStatus(id, status);
       window.showToast?.('Status updated.', 'success');

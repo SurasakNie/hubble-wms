@@ -124,8 +124,17 @@ btnSignin.addEventListener('click', async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier, password }),
     });
-    const data = await res.json();
+    let data = {};
+    try { data = await res.json(); } catch { /* non-JSON body, e.g. a gateway-level block */ }
 
+    if (res.status === 429) {
+      showErr('login-error', data.error || 'Too many attempts. Please wait a few minutes and try again.');
+      return;
+    }
+    if (res.status >= 500) {
+      showErr('login-error', data.error || 'Server error — please try again shortly.');
+      return;
+    }
     if (!res.ok || !data.session) {
       showErr('login-error', data.error || 'Invalid ID or password.');
       return;

@@ -16,7 +16,7 @@
 ## Dependency map
 
 ```
-A1 (lint migration, independent — do any time)          Track B (post-launch)
+A0+A1 (Studio migrations, one sitting — do any time)    Track B (post-launch)
                                                           go-live ─→ B2 Sheets daily export (first, tiny)
 A2 (doc fixes) ─→ A3 (audit coverage) ─→ A4 (run audit)            B4 toggles (any time, 5 min)
 A5 (Help page) ────────────────────────────┐                       B1 M1 central hub (big build)
@@ -32,6 +32,23 @@ A2 must precede A4 (the auditor needs corrected targets/URLs); A3 should precede
 ---
 
 # Track A — Launch path
+
+## A0 · Apply the PR #26 salvage migrations in Studio *(added 2026-07-09, R57)*
+
+**Status:** 🔴 ready — both files landed on `main` in R57, Studio-ready (wrapper-free, idempotent) · **Owner:** 🧑 · **Effort:** S · **Depends:** nothing — run in the **same Studio sitting as A1**
+
+**Why:** salvaged from the orphaned PR #26 audit (2026-07-03, never merged). `20260708`'s hand-maintained client-block list missed 12 internal tables — worst: **`employee_compensation` (salary/rate PII)**, which the app really reads (`js/api/employees.js:210`) and which the F-01 probe never covered (it probed the wrong table name, `compensation_records`). Both migrations are deny-only / defense-in-depth — safe even where base RLS already protects a table.
+
+**Steps:**
+1. Studio → SQL Editor → paste **`20260712_client_block_expanded.sql`** → Run (expect 12 `NOTICE` lines + the audit_log policy swap).
+2. Paste **`20260712b_f05_rpc_search_path.sql`** → Run (expect 3 `NOTICE` lines).
+3. Run each file's footer `VERIFY` queries.
+4. Re-run the extended client probe (`./f01_prod_client_probe.sh <client> <pw>`) — now ~35 checks incl. `employee_compensation` + the 11 other new tables; target **0 FAIL**.
+5. Report back → 🤖 flips both rows to ✅ in the Master Plan migrations table.
+
+**Acceptance:** probe 0 FAIL; a client JWT gets 0 rows from all 12 tables; admin still sees Admin Logs (audit_log policy swap is behaviour-preserving).
+
+---
 
 ## A1 · Apply `20260709_lint_search_path_and_execute_hardening.sql` in Studio
 
@@ -59,7 +76,7 @@ A2 must precede A4 (the auditor needs corrected targets/URLs); A3 should precede
 |---|---|---|
 | 1 | `PRE_LAUNCH_AUDIT_EXECUTION_PACKET.md:229,252` | `he-cells.github.io` "(pending transfer)" → `https://surasaknie.github.io/hubble-wms/` (transfer done 2026-07-03, old URL dead) |
 | 2 | `PRE_LAUNCH_AUDIT_PLAN.md:256` (L-CSP section) | same dead-URL phrasing → new URL |
-| 3 | Plan 1D + packet 1D + pass-criteria table | client probe target `22/22` → `23/23` (R51 added the `client_project_totals` view check, `f01_prod_client_probe.sh:246`); verify exact printed total from the script while editing; becomes ~30 after A3.5 |
+| 3 | Plan 1D + packet 1D + pass-criteria table | client probe target `22/22` → **0 FAIL (~35 checks)** — R51 added the view check, and R57 (PR #26 salvage) added `employee_compensation` + 11 more client-block tables; grows again by ~7 after A3.5's pn additions |
 | 4 | Plan 1A + packet 1A + pass-criteria | anon probe `45/45` → note the baseline predates `audit_log` (R45) + 6 `pn_*` tables + 4 pn RPCs; re-baseline per A3.6 |
 | 5 | Plan Phase 5 residual-0029 paragraph | add the 4 pn functions to the "ACCEPTED / by-design" list |
 | 6 | Plan pass-criteria table | add a row for the Help-page gate (execution-order step 3) |
@@ -331,7 +348,7 @@ Recommendation standing since 2026-06-12: **Supabase Pro first** ($25/mo — man
 
 | When | Who | What |
 |---|---|---|
-| Now | 🧑 | **A1** — paste the lint migration in Studio + run VERIFY (10 min) |
+| Now | 🧑 | **A0 + A1** — paste the three migrations in Studio + run VERIFY + re-run client probe (20 min) |
 | Next 🤖 session | 🤖 | **A2 + A3** — all doc fixes + audit coverage extensions in one push |
 | After A2/A3 | 🧑/🌐 | **A4** — run the execution packet against prod |
 | Parallel any time | 🤖 | **A5** Help page rebuild (needs cache bump v=121) · **A6.1** template drafts if wanted |

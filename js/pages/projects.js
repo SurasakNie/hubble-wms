@@ -9,7 +9,7 @@ import {
 import { getClients } from '../api/clients.js';
 import { getUsers, getGroups } from '../api/users.js';
 import { isAdmin, isManager } from '../auth.js';
-import { formatDuration, formatAmount, esc, attr } from '../format.js';
+import { formatDuration, formatAmount, esc, attr, safeColor } from '../format.js';
 
 const PALETTE = [
   '#03a9f4', '#9c27b0', '#4caf50', '#e91e63', '#ff9800', '#00bcd4',
@@ -254,7 +254,7 @@ function _renderRow(p, admin) {
     <tr data-id="${p.id}"${archived ? ' style="opacity:0.55"' : ''}>
       <td style="font-weight:500;">
         <span style="display:inline-flex; align-items:center; gap:8px;">
-          <span class="project-dot pr-dot" style="background:${color}; width:12px; height:12px;${admin ? ' cursor:pointer;' : ''}" title="${admin ? 'Change color' : ''}"></span>
+          <span class="project-dot pr-dot" style="background:${safeColor(color)}; width:12px; height:12px;${admin ? ' cursor:pointer;' : ''}" title="${admin ? 'Change color' : ''}"></span>
           ${esc(p.name || '')}
           ${p.code ? `<span class="text-muted" style="font-family:var(--font-mono, monospace); font-size:var(--font-xs); margin-left:2px;">${esc(p.code)}</span>` : ''}
           ${archived ? '<span class="badge badge-client" style="margin-left:4px;">archived</span>' : ''}

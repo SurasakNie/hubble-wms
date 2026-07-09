@@ -42,9 +42,11 @@ export function confirmModal({
       _busy = false;
       resolve(result);
     };
+    // Escape is handled by the global modal-backdrop handler in app-init.js
+    // (clicks the topmost backdrop, which resolves false via the listener
+    // below) -- no per-modal Esc handler here, per the house Modal Pattern.
     const onKey = (e) => {
-      if (e.key === 'Escape')     { e.preventDefault(); close(false); }
-      else if (e.key === 'Enter') { e.preventDefault(); close(true);  }
+      if (e.key === 'Enter') { e.preventDefault(); close(true); }
     };
 
     backdrop.addEventListener('click', e => { if (e.target === backdrop) close(false); });
@@ -109,10 +111,11 @@ export function promptModal({
       if (required && !val.trim()) { ta.focus(); return; }
       close(val);
     };
+    // Escape is handled by the global modal-backdrop handler in app-init.js
+    // -- no per-modal Esc handler here, per the house Modal Pattern.
     const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); close(null); }
       // Enter submits; Shift+Enter inserts a newline (textarea default).
-      else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
     };
 
     backdrop.addEventListener('click', e => { if (e.target === backdrop) close(null); });

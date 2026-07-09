@@ -537,11 +537,13 @@ async function _openLoginsModal(client) {
           btn.disabled = true;
           try {
             const token = getSession()?.access_token;
-            await fetch(`${EDGE}/admin-set-account-active`, {
+            const res = await fetch(`${EDGE}/admin-set-account-active`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
               body: JSON.stringify({ target_user_id: uid, active: false }),
             });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Could not deactivate the account — login was not deleted.');
             const { error } = await supabase.from('profiles').delete().eq('id', uid);
             if (error) throw error;
             window.showToast?.('Client login deleted', 'success');

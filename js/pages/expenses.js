@@ -11,10 +11,10 @@ import {
 } from '../api/expenses.js';
 
 import { S, _fmt, _money, _today, _isWeekend, _nextWeekday, STATUS_LABELS, STATUS_CLASS, _badge, _settled, _isoWeek, _catIn, _catOut, _otherCatId, OFFICE_CAT_NAMES, OFFICE_IN_CAT_NAMES, _officeProjectId, _fxCache, _fetchFxRate, _wireCurrencyConvert, _curOpts, _projOptions, _projOptionsReq, _monthlyDeadline, _nextMonday, _weekRange, _inWeek } from './expenses-state.js';
-import { _renderMileage, _renderTrip } from './expenses-travel.js?v=103';
-import { renderApprovals } from './expenses-approvals.js?v=103';
-import { renderPettyCash } from './expenses-petty-cash.js?v=106';
-import { renderReport } from './expenses-report.js?v=103';
+import { _renderMileage, _renderTrip } from './expenses-travel.js?v=121';
+import { renderApprovals } from './expenses-approvals.js?v=121';
+import { renderPettyCash } from './expenses-petty-cash.js?v=121';
+import { renderReport } from './expenses-report.js?v=121';
 
 // ── Boot ──────────────────────────────────────────────────────
 export async function render(profile) {
