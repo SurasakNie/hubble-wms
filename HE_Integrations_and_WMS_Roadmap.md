@@ -1,15 +1,21 @@
-# Plan — Weekly Google Sheets Auto-Export + WMS Expansion Roadmap
+# Plan — Daily Google Sheets Auto-Export + WMS Expansion Roadmap
 
-> **Date:** 2026-06-02 · **Updated:** 2026-06-10 · **Status:** Plan for approval · **Author:** Claude (Opus 4.8)
-> **Scope decision (confirmed with user):** Build the weekly Google Sheets export now via Google
+> **Date:** 2026-06-02 · **Updated:** 2026-07-09 · **Status:** Plan for approval · **Author:** Claude (Opus 4.8)
+> **Scope decision (confirmed with user):** Build the daily Google Sheets export now via Google
 > Apps Script; document the WMS expansion as a roadmap only.
+>
+> **Revised 2026-07-09:** cadence changed from weekly (Friday night only) to **daily** (every
+> night) per user request. Still $0, still zero app/schema changes — only the Apps Script trigger
+> and function name change (`weeklyExport()` → `dailyExport()`, `onWeekDay(FRIDAY)` →
+> `everyDays(1)`). Supabase read volume rises ~7× (one full-history fetch per day instead of per
+> week) — trivial at current team scale, noted in the cost analysis below.
 
 ## Context
 
 The deployed **TIMESHEET** app is a static (GitHub Pages) vanilla-JS Clockify-style tracker on
 Supabase. Two goals prompted this plan:
 
-1. **Automatic weekly export to Google Sheets.** Every Friday night (~23:59 Asia/Bangkok), all
+1. **Automatic daily export to Google Sheets.** Every night (~23:59 Asia/Bangkok), all
    time entries should be pushed to **one** Google Sheet with **one tab per employee**, so the
    sheet accumulates a complete record from the start date to today. Columns:
    **Date · Project · Client · Employee · Description · Time spent · Notes**.
@@ -20,22 +26,22 @@ Supabase. Two goals prompted this plan:
 **Why the export is the whole challenge:** the data shape is already perfect — `getEntries()` in
 `js/api/timeEntries.js` returns `date`, `project.name`, `project.clients.name`, `total_hours`,
 `description`, and `user_id` per row. The only real problem is that a **static site cannot run a
-Friday-night cron**, and the browser anon key is RLS-gated (can't read *all* employees' rows). So
+nightly cron**, and the browser anon key is RLS-gated (can't read *all* employees' rows). So
 the scheduler must live server-side with an elevated read path.
 
 **Decision (confirmed with user):** run the job in **Google Apps Script** bound to the target
-Sheet, on a weekly `Asia/Bangkok` trigger, reading Supabase via the **`service_role`** key stored
+Sheet, on a daily `Asia/Bangkok` trigger, reading Supabase via the **`service_role`** key stored
 privately in Script Properties. **This requires zero changes to the deployed app, UI, or RLS.**
 
 ---
 
-## Part 1 — Google Sheets weekly auto-export (BUILD NOW)
+## Part 1 — Google Sheets daily auto-export (BUILD NOW)
 
 ### Architecture (no app/Supabase changes)
 
 ```
 Google Sheet  ──bound──►  Apps Script project (Code.gs)
-                              │  weekly trigger: Fri ~23:00–24:00 ICT
+                              │  daily trigger: ~23:00–24:00 ICT
                               ▼
                           PostgREST GET  https://<ref>.supabase.co/rest/v1/time_entries
                               │  Authorization: Bearer <service_role>   (bypasses RLS → all users)
@@ -64,7 +70,7 @@ Google Sheet  ──bound──►  Apps Script project (Code.gs)
 
 **Functions:**
 
-- `weeklyExport()` — trigger entry point:
+- `dailyExport()` — trigger entry point:
   1. **Fetch all entries** via PostgREST with embedded joins, paginating in 1000-row pages
      (PostgREST default cap) using `Range` headers or `&limit=1000&offset=N` until a short page:
      ```
@@ -82,9 +88,9 @@ Google Sheet  ──bound──►  Apps Script project (Code.gs)
      cumulative start→today record with **no duplicates**, and picks up back-dated entries on the
      next run. (Edits/deletes to already-pushed rows do not propagate — accepted, append-only.)
 - `setUpTrigger()` — run once manually: deletes existing triggers, creates
-  `ScriptApp.newTrigger('weeklyExport').timeBased().onWeekDay(ScriptApp.WeekDay.FRIDAY).atHour(23).create()`.
-  (Apps Script weekly triggers fire within the 23:00–24:00 window in the project timezone — close
-  enough to "11:59 PM Friday"; the ~1h window is a documented caveat.)
+  `ScriptApp.newTrigger('dailyExport').timeBased().everyDays(1).atHour(23).create()`.
+  (Apps Script daily triggers fire within the 23:00–24:00 window in the project timezone — close
+  enough to "11:59 PM"; the ~1h window is a documented caveat.)
 - `testConnection()` — logs the fetched row count + first row, for setup verification.
 
 **Column mapping (per tab):**
@@ -112,11 +118,11 @@ Google Sheet  ──bound──►  Apps Script project (Code.gs)
 2. Set Script Properties (`SUPABASE_URL`, `SERVICE_ROLE_KEY`); set project timezone `Asia/Bangkok`.
 3. Run `testConnection()` → authorize scopes → confirm the log shows a sensible **row count** and a
    sample row with name/project/client populated.
-4. Run `weeklyExport()` once manually → confirm: one **tab per employee**, header row, rows in date
+4. Run `dailyExport()` once manually → confirm: one **tab per employee**, header row, rows in date
    order, `Time spent` as `h:mm`, hidden `EntryID` column present.
-5. Run `weeklyExport()` **again** → confirm **no rows duplicated** (incremental dedup works); type a
+5. Run `dailyExport()` **again** → confirm **no rows duplicated** (incremental dedup works); type a
    value in a `Notes` cell, re-run, confirm it **survives**.
-6. Run `setUpTrigger()` → confirm a weekly Friday trigger appears under **Triggers**.
+6. Run `setUpTrigger()` → confirm a daily trigger appears under **Triggers**.
 
 ---
 
@@ -184,21 +190,22 @@ in Phase 1.
 
 ## Cost analysis
 
-### Part 1 — Google Sheets weekly export: **$0**
+### Part 1 — Google Sheets daily export: **$0**
 
 | Component | Cost | Why |
 |---|---|---|
 | Google Apps Script | Free | Runs on Google's infra; no paid tier needed. |
 | Google Sheets | Free | Part of the existing Google/Workspace account. |
-| Weekly time-driven trigger | Free | — |
-| Supabase reads (PostgREST) | Free | One read per week, well inside the free tier. |
+| Daily time-driven trigger | Free | — |
+| Supabase reads (PostgREST) | Free | One full read per day, well inside the free tier (~7× the original weekly-cadence volume — still trivial at current team scale). |
 | GitHub Pages | Free (unchanged) | No app changes at all. |
 
 **Apps Script quotas are runtime, not dollars** — ~90 min/day total runtime, 6 min per execution,
-`UrlFetchApp` ~20k calls/day. A weekly run of a few thousand rows uses a tiny fraction. The only
-ceiling is tens of thousands of entries in one run (the 6-min cap), which is far off and solvable
-later with batching. **Effectively free indefinitely at normal team scale.** The only non-dollar
-"cost" is the `service_role` key sensitivity (keep it in private Script Properties only).
+`UrlFetchApp` ~20k calls/day. A daily run of a few hundred to a couple thousand rows uses a tiny
+fraction, even at 7×/week instead of 1×/week. The only ceiling is tens of thousands of entries in
+one run (the 6-min cap), which is far off and solvable later with batching. **Effectively free
+indefinitely at normal team scale.** The only non-dollar "cost" is the `service_role` key
+sensitivity (keep it in private Script Properties only).
 
 ### Part 2 — WMS expansion: deferred, optional, decision-gated
 
@@ -227,6 +234,6 @@ handoff.
 | **Create** | `integrations/google-sheets/appsscript.json` |
 | **Create** | `integrations/google-sheets/README.md` |
 | **Create** | `WMS-expansion-roadmap.md` |
-| **Modify** | `HE_interactive_timesheet_plan.md` — add an "Integrations: weekly Google Sheets export" note + a pointer to the roadmap; bump the status table. |
+| **Modify** | `HE_interactive_timesheet_plan.md` — add an "Integrations: daily Google Sheets export" note + a pointer to the roadmap; bump the status table. |
 
 **No changes** to `js/`, `css/`, `supabase/`, `app.html`, or `index.html`.

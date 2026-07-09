@@ -18,7 +18,7 @@
 | Backend (Supabase schema, RLS, OAuth, login) | ✅ 100% — login works end-to-end |
 | Pages built | ✅ **15 of 15** — core tracker + all WMS pages (M2–M6) |
 | Reports page | ✅ Done — filter bar, stacked bar, grouped table, donut, CSV export |
-| Google Sheets weekly export | ⏸ PARKED — plan ready; blocked until app is live + Sheet URL provided |
+| Google Sheets daily export | ⏸ PARKED — plan ready; blocked until app is live + Sheet URL provided |
 | Deletion-request approval flow | ✅ Built as the Notifications page (`requests.js`) |
 | GitHub Pages deploy + prod redirect URL | ✅ Live since R24 — he-cells.github.io/hubble-wms *(account transfer pending — see REPO_TRANSFER_CHECKLIST.md)* |
 | Documents / M6 automated documentation | ✅ Live — migrations applied; templates + doc requests (R21) |
@@ -475,7 +475,7 @@ Profile row is global (all roles); company line shows client name for `client` r
 | `entryModal.js` · `profileModal.js` · `prefsModal.js` | ✅ (profile + prefs now **read-only**; name/job-title via request flow — Round 4) |
 | `tracker.js` · `clients.js` · `projects.js` · `tags.js` · `calendar.js` · `timesheet.js` · `team.js` · `dashboard.js` | ✅ |
 | `reports.js` | ✅ Done — filter bar, KPI summary, stacked bar chart, grouped table, companion donut, CSV export, RBAC (Amount hidden from managers) |
-| Google Sheets weekly export | ⏸ PARKED — plan ready; needs app live + user-created Sheet URL |
+| Google Sheets daily export | ⏸ PARKED — plan ready; needs app live + user-created Sheet URL |
 | Deletion-request approval flow | ✅ Built as the **Notifications page** (`requests.js`) — deletion + name-change + job-title requests |
 | Documents / M6 automated documentation | ✅ Live — `documents.js` + `api/documents.js`; templates, doc requests (R21), draft→generate; all migrations applied |
 | GitHub Pages deploy + prod redirect URL | ✅ Live since R24 — he-cells.github.io/hubble-wms *(account transfer pending — see REPO_TRANSFER_CHECKLIST.md)* |
@@ -487,7 +487,7 @@ Profile row is global (all roles); company line shows client name for `client` r
 2. ~~**Deletion-request approval flow**~~ ✅ **Built (2026-06-06)** as the **Notifications page**
    (`js/pages/requests.js`) — admin queue for deletion + name-change + job-title-change requests,
    approve/reject, nav badge. Managers still insert own rows only.
-3. **Google Sheets weekly export** (⏸ PARKED) — Apps Script + `Code.gs`. Needs: (a) app live,
+3. **Google Sheets daily export** (⏸ PARKED) — Apps Script + `Code.gs`. Needs: (a) app live,
    (b) user creates blank Google Sheet and provides URL. Plan documented in the plan file.
 4. **Phase-2 placeholders** (⏸) — Reminders tab, Apps/Timesheet preference tabs, optional Google
    app verification (clears the `…supabase.co` line on the consent screen before public launch).
@@ -550,7 +550,7 @@ All applied to the live database. **⚠️ Do NOT re-run the full `schema.sql`.*
 - `owner` ≡ `admin` permissions.
 - Billable rate: admin/owner-only visibility (app-layer masking).
 - Client role: aggregate totals only via `client_project_totals` view.
-- Export: **CSV only** from the Reports page (`report_YYYY-MM-DD.csv`). Google Sheets weekly auto-export via Apps Script is planned but parked until go-live.
+- Export: **CSV only** from the Reports page (`report_YYYY-MM-DD.csv`). Google Sheets daily auto-export via Apps Script is planned but parked until go-live.
 - **English UI only.**
 - Phase-2 placeholders: Reminders tab, Apps + Timesheet preference tabs.
 - **Sidebar profile widget** (2026-06-04): avatar moved from topbar top-right → sidebar

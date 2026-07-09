@@ -11,11 +11,15 @@
 -- recreated), matches every overload/signature via oid::regprocedure, and
 -- skips names that don't exist. Safe to re-run.
 --
+-- ⚠️ NO BEGIN/COMMIT wrapper on purpose: two earlier migrations wrapped in an
+-- explicit transaction silently ran only a fragment in the Supabase SQL
+-- Editor ("Success, no rows" while creating/altering nothing past that
+-- point). Each DO block below autocommits on its own and is independently
+-- idempotent, so a partial run is safe to just re-run.
+--
 -- NOT covered here (dashboard-only, see footer): 0032
 -- auth_leaked_password_protection — a Supabase Auth toggle, no SQL.
 -- ============================================================
-
-BEGIN;
 
 -- ------------------------------------------------------------
 -- 1. 0011 — pin search_path on the 12 flagged functions
@@ -141,8 +145,6 @@ BEGIN
     RAISE NOTICE '0028 restricted to authenticated: %', r.sig;
   END LOOP;
 END $$;
-
-COMMIT;
 
 NOTIFY pgrst, 'reload schema';
 

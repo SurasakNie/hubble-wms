@@ -572,7 +572,7 @@ date · project · route (Start → stops → End) · vehicle type · one-way/ro
 | **Full-time** | **16th** monthly | Monthly expense report + petty-cash **top-up request due the 14th** — if the 14th is a weekend/public holiday, complete **before the last workday that week**. Summary sent **~09:30** that morning. |
 | **Part-time / Outsource** | **Weekly, every Monday** | **Weekly wage summary** sent **first thing Monday AM** — prior-week logged timesheet hours × rate (`Engineering Assistant Wage (Wk#XX/YYYY)`), disbursed from the float. |
 
-> Reports are segmented by `employees.employment_type_code` (1=FT · 2=PT · 3=Contract). The weekly wage figure reads Timesheet (M1) hours; per-entry timesheet **approval** is an M1 enhancement. **Automated timed delivery** (09:30 / Monday AM) is a **scheduled job** — folds into the parked weekly Google Sheets auto-export integration; the WMS UI provides the summary views + deadline banners.
+> Reports are segmented by `employees.employment_type_code` (1=FT · 2=PT · 3=Contract). The weekly wage figure reads Timesheet (M1) hours; per-entry timesheet **approval** is an M1 enhancement. **Automated timed delivery** (09:30 / Monday AM) is a **scheduled job** — folds into the parked daily Google Sheets auto-export integration; the WMS UI provides the summary views + deadline banners.
 
 **Monthly report format (sample):**
 ```

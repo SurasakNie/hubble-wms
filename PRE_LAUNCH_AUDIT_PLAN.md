@@ -316,5 +316,9 @@ Dashboard toggle (L-PWLEAK).
    Pages. These phases (plus the L-CSP live console check) must be run by a human with real
    network access, or in the Supabase Studio SQL Editor. See
    `PRE_LAUNCH_AUDIT_EXECUTION_PACKET.md` for ready-to-run commands/queries/checklists.
-3. Team review (functional feedback, UX)
-4. Sign-off → **Roster Swap (RSK-0)**
+3. **Refresh the Help page** (`js/pages/help.js`) — added 2026-07-09. It still reflects Round 42
+   and has **zero** mentions of CLIENT-01/Client Portal, Admin Logs, the Account Status tab, or
+   Part Numbers (verified by grep — none of those terms appear in the file). It's the user +
+   admin manual, so it needs to cover everything shipped since R42 **before** reviewers see it.
+4. Team review (functional feedback, UX)
+5. Sign-off → **Roster Swap (RSK-0)**
