@@ -865,13 +865,11 @@ function _renderModal(isEdit, admin) {
       </div>
     </div>`;
 
-  // Close handlers (✕ / Cancel / backdrop; Esc handled globally in app.html)
+  // Close handlers (✕ / Cancel; Esc handled globally in app.html via _escClose)
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#em-modal-close').addEventListener('click', close);
   mount.querySelector('#em-modal-cancel').addEventListener('click', close);
-  mount.querySelector('#em-modal-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'em-modal-backdrop') close();
-  });
+  mount.querySelector('#em-modal-backdrop')._escClose = close;
 
   // Tab switching
   mount.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1428,9 +1426,7 @@ function _openArchiveModal(emp) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#em-arch-close').addEventListener('click', close);
   mount.querySelector('#em-arch-cancel').addEventListener('click', close);
-  mount.querySelector('#em-arch-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'em-arch-backdrop') close();
-  });
+  mount.querySelector('#em-arch-backdrop')._escClose = close;
 
   const doArchive = async status => {
     mount.querySelectorAll('button').forEach(b => { b.disabled = true; });
@@ -1552,9 +1548,7 @@ function _openInfoModal() {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#em-info-close').addEventListener('click', close);
   mount.querySelector('#em-info-ok').addEventListener('click', close);
-  mount.querySelector('#em-info-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'em-info-backdrop') close();
-  });
+  mount.querySelector('#em-info-backdrop')._escClose = close;
 }
 
 // ── Helpers ───────────────────────────────────────────────────

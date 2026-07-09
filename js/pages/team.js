@@ -463,9 +463,7 @@ function _openNameChangeReview(req, user) {
   const closeModal = () => { mount.innerHTML = ''; };
   document.getElementById('ncr-close').onclick      = closeModal;
   document.getElementById('ncr-cancel-btn').onclick = closeModal;
-  document.getElementById('ncr-backdrop').onclick   = e => {
-    if (e.target === e.currentTarget) closeModal();
-  };
+  document.getElementById('ncr-backdrop')._escClose = closeModal;
 
   // Reject — two-step: show note field → confirm
   let rejectReady = false;
@@ -536,9 +534,7 @@ function _openRateModal(user) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#tm-rate-close').addEventListener('click', close);
   mount.querySelector('#tm-rate-cancel').addEventListener('click', close);
-  mount.querySelector('#tm-rate-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'tm-rate-backdrop') close();
-  });
+  mount.querySelector('#tm-rate-backdrop')._escClose = close;
 
   mount.querySelector('#tm-rate-save').addEventListener('click', async () => {
     const raw = mount.querySelector('#tm-rate-input').value.trim();
@@ -597,9 +593,7 @@ function _openAddMemberModal() {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#tm-add-close').addEventListener('click', close);
   mount.querySelector('#tm-add-cancel').addEventListener('click', close);
-  mount.querySelector('#tm-add-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'tm-add-backdrop') close();
-  });
+  mount.querySelector('#tm-add-backdrop')._escClose = close;
   mount.querySelector('#tm-add-copy').addEventListener('click', async () => {
     const input = mount.querySelector('#tm-add-url');
     try {
@@ -738,9 +732,7 @@ function _openGroupMembersModal(group) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#tm-gm-close').addEventListener('click', close);
   mount.querySelector('#tm-gm-done').addEventListener('click', close);
-  mount.querySelector('#tm-gm-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'tm-gm-backdrop') close();
-  });
+  mount.querySelector('#tm-gm-backdrop')._escClose = close;
 
   _renderGmBody(group);
 }
@@ -916,9 +908,7 @@ function _confirmDeleteGroup(group) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#tm-gdel-close').addEventListener('click', close);
   mount.querySelector('#tm-gdel-cancel').addEventListener('click', close);
-  mount.querySelector('#tm-gdel-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'tm-gdel-backdrop') close();
-  });
+  mount.querySelector('#tm-gdel-backdrop')._escClose = close;
 
   mount.querySelector('#tm-gdel-confirm').addEventListener('click', async () => {
     const btn = mount.querySelector('#tm-gdel-confirm');

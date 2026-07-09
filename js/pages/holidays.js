@@ -15,10 +15,10 @@ import {
 } from '../api/leaves.js';
 
 import { S } from './holidays-state.js';
-import { renderHolidays } from './holidays-holidays.js?v=121';
-import { renderMyLeave, renderFlex, renderBalances } from './holidays-my-leave.js?v=121';
-import { renderTeamLeave, renderTeamFlex } from './holidays-team.js?v=121';
-import { renderApprovals, renderTeamBalance } from './holidays-approvals.js?v=121';
+import { renderHolidays } from './holidays-holidays.js?v=122';
+import { renderMyLeave, renderFlex, renderBalances } from './holidays-my-leave.js?v=122';
+import { renderTeamLeave, renderTeamFlex } from './holidays-team.js?v=122';
+import { renderApprovals, renderTeamBalance } from './holidays-approvals.js?v=122';
 
 // ── Entry point ───────────────────────────────────────────────
 

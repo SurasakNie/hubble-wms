@@ -333,9 +333,7 @@ function _openEditModal(client) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#cl-modal-close').addEventListener('click', close);
   mount.querySelector('#cl-modal-cancel').addEventListener('click', close);
-  mount.querySelector('#cl-modal-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'cl-modal-backdrop') close();
-  });
+  mount.querySelector('#cl-modal-backdrop')._escClose = close;
 
   mount.querySelector('#cl-modal-save').addEventListener('click', async () => {
     const name = mount.querySelector('#cl-edit-name').value.trim();
@@ -399,9 +397,7 @@ function _confirmDelete(client) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#cl-del-close').addEventListener('click', close);
   mount.querySelector('#cl-del-cancel').addEventListener('click', close);
-  mount.querySelector('#cl-del-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'cl-del-backdrop') close();
-  });
+  mount.querySelector('#cl-del-backdrop')._escClose = close;
 
   mount.querySelector('#cl-del-confirm').addEventListener('click', async () => {
     const btn = mount.querySelector('#cl-del-confirm');
@@ -457,9 +453,7 @@ async function _openLoginsModal(client) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#cl-lg-close').addEventListener('click', close);
   mount.querySelector('#cl-lg-done').addEventListener('click', close);
-  mount.querySelector('#cl-lg-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'cl-lg-backdrop') close();
-  });
+  mount.querySelector('#cl-lg-backdrop')._escClose = close;
 
   const listEl = mount.querySelector('#cl-lg-list');
   async function refreshList() {

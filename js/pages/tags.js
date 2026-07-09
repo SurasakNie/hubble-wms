@@ -260,9 +260,7 @@ function _openEditModal(tag) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#tag-modal-close').addEventListener('click', close);
   mount.querySelector('#tag-modal-cancel').addEventListener('click', close);
-  mount.querySelector('#tag-modal-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'tag-modal-backdrop') close();
-  });
+  mount.querySelector('#tag-modal-backdrop')._escClose = close;
 
   _wireSwatches(mount.querySelector('#tag-edit-color-picker'), color => { editColor = color; });
 
@@ -322,9 +320,7 @@ function _confirmDelete(tag) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#tag-del-close').addEventListener('click', close);
   mount.querySelector('#tag-del-cancel').addEventListener('click', close);
-  mount.querySelector('#tag-del-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'tag-del-backdrop') close();
-  });
+  mount.querySelector('#tag-del-backdrop')._escClose = close;
 
   mount.querySelector('#tag-del-confirm').addEventListener('click', async () => {
     const btn = mount.querySelector('#tag-del-confirm');

@@ -214,9 +214,7 @@ function _renderModal({ title, date, startTime, endTime, totalHours = '', projec
   // Close
   mount.querySelector('#entry-modal-close').addEventListener('click', _closeModal);
   mount.querySelector('#em-cancel').addEventListener('click', _closeModal);
-  mount.querySelector('#entry-modal-backdrop').addEventListener('click', e => {
-    if (e.target === e.currentTarget) _closeModal();
-  });
+  mount.querySelector('#entry-modal-backdrop')._escClose = _closeModal;
 
   // Project change → refresh task list
   mount.querySelector('#em-project').addEventListener('change', e => {

@@ -318,7 +318,7 @@ function _openEditModal(kind, item) {
   const close = () => modal.remove();
   document.getElementById('edt-close').addEventListener('click', close);
   document.getElementById('edt-cancel').addEventListener('click', close);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal._escClose = close;
 
   if (kind === 'exp') {
     const _applyEdtCatLock = () => {
@@ -489,7 +489,7 @@ function _openRejectModal(kind, id) {
   const close = () => modal.remove();
   document.getElementById('rej-close').addEventListener('click', close);
   document.getElementById('rej-cancel').addEventListener('click', close);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal._escClose = close;
 
   document.getElementById('rej-apply').addEventListener('click', async () => {
     const applyBtn = document.getElementById('rej-apply');
@@ -543,7 +543,7 @@ function _openOverrideModal(kind, id) {
   const close = () => modal.remove();
   document.getElementById('ovr-close').addEventListener('click', close);
   document.getElementById('ovr-cancel').addEventListener('click', close);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal._escClose = close;
 
   document.getElementById('ovr-apply').addEventListener('click', async () => {
     const applyBtn = document.getElementById('ovr-apply');

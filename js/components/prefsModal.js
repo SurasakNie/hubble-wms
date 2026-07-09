@@ -150,9 +150,7 @@ export function openPrefsModal(profile) {
   const close = () => document.getElementById('modal-mount').innerHTML = '';
   document.getElementById('prefs-close').onclick   = close;
   document.getElementById('prefs-cancel').onclick  = close;
-  document.getElementById('prefs-modal-backdrop').onclick = e => {
-    if (e.target === e.currentTarget) close();
-  };
+  document.getElementById('prefs-modal-backdrop')._escClose = close;
 
   // Only the Format tab has editable fields → SAVE; all others → OK (just close).
   const TAB_IS_EDITABLE = { general: false, timesheet: false, format: true, security: false, apps: false };

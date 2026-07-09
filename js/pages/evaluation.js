@@ -104,7 +104,7 @@ function _respMap(responses) {
   return map;
 }
 
-// House modal pattern: backdrop + modal, closes on ✕ / Cancel / backdrop click.
+// House modal pattern: backdrop + modal, closes on ✕ / Cancel / Esc (not backdrop click).
 function _openModal(id, innerHtml, { wide = false } = {}) {
   document.getElementById(id)?.remove();
   const modal = document.createElement('div');
@@ -113,7 +113,7 @@ function _openModal(id, innerHtml, { wide = false } = {}) {
   modal.innerHTML = `<div class="modal${wide ? ' modal-lg' : ''}">${innerHtml}</div>`;
   document.body.appendChild(modal);
   const close = () => modal.remove();
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal._escClose = close;
   modal.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', close));
   return { modal, close };
 }

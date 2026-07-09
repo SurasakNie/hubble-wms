@@ -378,9 +378,7 @@ function _openAssignModal(project) {
   const close = () => { mount.innerHTML = ''; _renderTable(); _hydrateStats(); };
   mount.querySelector('#pr-as-close').addEventListener('click', close);
   mount.querySelector('#pr-as-done').addEventListener('click', close);
-  mount.querySelector('#pr-as-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'pr-as-backdrop') close();
-  });
+  mount.querySelector('#pr-as-backdrop')._escClose = close;
 
   _loadAssign(project);
 }
@@ -653,9 +651,7 @@ function _openProjectModal(project) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#pr-modal-close').addEventListener('click', close);
   mount.querySelector('#pr-modal-cancel').addEventListener('click', close);
-  mount.querySelector('#pr-modal-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'pr-modal-backdrop') close();
-  });
+  mount.querySelector('#pr-modal-backdrop')._escClose = close;
 
   // Swatch picker keeps the <input type=color> in sync
   const colorInput = mount.querySelector('#pr-f-color');
@@ -750,9 +746,7 @@ function _openColorPicker(project) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#pr-col-close').addEventListener('click', close);
   mount.querySelector('#pr-col-cancel').addEventListener('click', close);
-  mount.querySelector('#pr-col-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'pr-col-backdrop') close();
-  });
+  mount.querySelector('#pr-col-backdrop')._escClose = close;
 
   const colInput = mount.querySelector('#pr-col-input');
   mount.querySelectorAll('.pr-swatch').forEach(sw => {
@@ -804,9 +798,7 @@ function _confirmDelete(project) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('#pr-del-close').addEventListener('click', close);
   mount.querySelector('#pr-del-cancel').addEventListener('click', close);
-  mount.querySelector('#pr-del-backdrop').addEventListener('click', e => {
-    if (e.target.id === 'pr-del-backdrop') close();
-  });
+  mount.querySelector('#pr-del-backdrop')._escClose = close;
 
   mount.querySelector('#pr-del-confirm').addEventListener('click', async () => {
     const btn = mount.querySelector('#pr-del-confirm');

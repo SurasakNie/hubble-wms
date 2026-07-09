@@ -124,7 +124,7 @@ export async function openProfileModal(profile) {
   const close = () => document.getElementById('modal-mount').innerHTML = '';
   document.getElementById('pm-close').onclick  = close;
   document.getElementById('pm-cancel').onclick = close;
-  document.getElementById('profile-modal-backdrop').onclick = e => { if (e.target === e.currentTarget) close(); };
+  document.getElementById('profile-modal-backdrop')._escClose = close;
 
   // Name change request — inline form
   function _showNcrForm() {

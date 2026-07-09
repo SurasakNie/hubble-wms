@@ -339,7 +339,7 @@ function _mountModal(html, backdropId) {
   const close = () => { mount.innerHTML = ''; };
   mount.querySelector('.modal-close')?.addEventListener('click', close);
   mount.querySelector('.pn-modal-cancel')?.addEventListener('click', close);
-  mount.querySelector(`#${backdropId}`).addEventListener('click', e => { if (e.target.id === backdropId) close(); });
+  mount.querySelector(`#${backdropId}`)._escClose = close;
   return { mount, close };
 }
 

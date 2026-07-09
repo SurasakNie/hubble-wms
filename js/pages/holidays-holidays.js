@@ -295,7 +295,7 @@ function _openHolidayModal(group, parentWrap, saveTabState) {
   const close = () => modal.remove();
   document.getElementById('hl-hm-close')?.addEventListener('click', close);
   document.getElementById('hl-hm-cancel')?.addEventListener('click', close);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal._escClose = close;
 
   // Auto-fill End when Start changes and End is empty or behind Start
   document.getElementById('hl-hm-start')?.addEventListener('change', e => {

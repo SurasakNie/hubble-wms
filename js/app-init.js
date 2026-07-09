@@ -86,13 +86,15 @@ sidebarEl?.querySelectorAll('.nav-item').forEach(link => {
   });
 });
 
-// Esc closes the topmost open modal (any .modal-backdrop) by clicking it, which
-// every modal's backdrop-click-to-close handler resolves as a cancel. Per the
-// house Modal Pattern, no modal should register its own Esc handler.
+// Esc closes the topmost open modal (any .modal-backdrop) via the close callback
+// each modal stores on its backdrop element as `_escClose` when it wires up.
+// Backdrop click no longer closes anything (accidental-close fix) -- only an
+// explicit button or Esc does. Per the house Modal Pattern, no modal should
+// register its own Esc keydown handler; just set `_escClose` on the backdrop.
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   const backs = document.querySelectorAll('.modal-backdrop');
-  if (backs.length) backs[backs.length - 1].click();
+  if (backs.length) backs[backs.length - 1]._escClose?.();
 }, true);
 
 // ── SHOW MORE toggle (reveals #nav-wms) ─────────────────────
@@ -410,7 +412,7 @@ window.showToast = function(msg, type = 'info') {
 // ── Page routes ──────────────────────────────────────────────
 // Version query busts the browser cache so a hard refresh always loads the latest page JS.
 // Bump this alongside the CSS ?v= when page modules change.
-const V = '?v=121';
+const V = '?v=122';
 const pages = {
   '#client-portal': () => import('./pages/clientPortal.js' + V),
   '#tracker':   () => import('./pages/tracker.js'   + V),

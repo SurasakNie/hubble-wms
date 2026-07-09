@@ -556,7 +556,7 @@ function _openOverrideModal(type, id, onDone) {
   const close = () => modal.remove();
   document.getElementById('hl-or-close')?.addEventListener('click', close);
   document.getElementById('hl-or-cancel')?.addEventListener('click', close);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal._escClose = close;
 
   document.getElementById('hl-or-save')?.addEventListener('click', async () => {
     const newStatus = document.getElementById('hl-or-status').value;
@@ -612,7 +612,7 @@ function _openHlRejectModal({ contextLine, required, onConfirm }) {
   const close = () => modal.remove();
   document.getElementById('hl-rej-close').addEventListener('click', close);
   document.getElementById('hl-rej-cancel').addEventListener('click', close);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal._escClose = close;
   document.getElementById('hl-rej-apply').addEventListener('click', async () => {
     const applyBtn = document.getElementById('hl-rej-apply');
     const reason = document.getElementById('hl-rej-reason').value.trim();
@@ -668,7 +668,7 @@ function _openLeaveEditModal(req, onSave) {
   const close = () => modal.remove();
   document.getElementById('hle-close').addEventListener('click', close);
   document.getElementById('hle-cancel').addEventListener('click', close);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal._escClose = close;
 
   async function _doSaveLeave() {
     const updated = await updateLeaveRequest(req.id, {

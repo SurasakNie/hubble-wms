@@ -324,7 +324,7 @@ async function _openPostWagesModal(wageRows, weekTag, txnDate, reload) {
     </div>`;
   document.body.appendChild(backdrop);
   const close = () => backdrop.remove();
-  backdrop.addEventListener('click', e => { if (e.target === backdrop) close(); });
+  backdrop._escClose = close;
   backdrop.querySelector('#pw-close').addEventListener('click', close);
   backdrop.querySelector('#pw-cancel').addEventListener('click', close);
 

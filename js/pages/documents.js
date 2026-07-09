@@ -434,7 +434,7 @@ function _openDocReqRejectModal({ contextLine, onConfirm }) {
   const close = () => modal.remove();
   document.getElementById('docreq-rej-close').addEventListener('click', close);
   document.getElementById('docreq-rej-cancel').addEventListener('click', close);
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal._escClose = close;
   document.getElementById('docreq-rej-apply').addEventListener('click', async () => {
     const applyBtn = document.getElementById('docreq-rej-apply');
     const reason = document.getElementById('docreq-rej-reason').value.trim();
@@ -691,7 +691,7 @@ function _openTemplateModal(id) {
   `;
   document.body.appendChild(modal);
   const close = () => modal.remove();
-  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  modal._escClose = close;
   modal.querySelector('[data-close]')?.addEventListener('click', close);
   modal.querySelector('#dt-preview-btn')?.addEventListener('click', () => {
     modal.querySelector('#dt-preview').innerHTML = _samplePreview(modal.querySelector('#dt-html').value);
@@ -737,7 +737,7 @@ async function _openDocumentModal(id, autoPrint = false) {
     document.body.appendChild(modal);
     document.body.classList.add('doc-printing');
     const close = () => { modal.remove(); document.body.classList.remove('doc-printing'); };
-    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+    modal._escClose = close;
     modal.querySelector('[data-close]')?.addEventListener('click', close);
     const printNow = () => {
       if (missingRequired.length) {

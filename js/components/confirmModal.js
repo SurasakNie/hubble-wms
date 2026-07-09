@@ -2,7 +2,7 @@
 // Centered, promise-returning confirmation dialog — a drop-in replacement for the
 // native confirm(), which Chrome/Edge anchor to the TOP of the window and cannot be
 // repositioned. Follows the house Modal Pattern (.modal-backdrop centers via flex).
-// Resolves true on confirm; false on cancel / backdrop click / ✕ / Escape.
+// Resolves true on confirm; false on cancel / ✕ / Escape. Backdrop click does nothing.
 //
 //   if (!await confirmModal({ message: 'Delete this?', confirmText: 'Delete', danger: true })) return;
 //
@@ -42,14 +42,14 @@ export function confirmModal({
       _busy = false;
       resolve(result);
     };
-    // Escape is handled by the global modal-backdrop handler in app-init.js
-    // (clicks the topmost backdrop, which resolves false via the listener
-    // below) -- no per-modal Esc handler here, per the house Modal Pattern.
+    // Escape is handled by the global modal-backdrop handler in app-init.js via
+    // `_escClose`, set below -- no per-modal Esc handler here, per the house
+    // Modal Pattern. Backdrop click intentionally does nothing (accidental-close fix).
     const onKey = (e) => {
       if (e.key === 'Enter') { e.preventDefault(); close(true); }
     };
 
-    backdrop.addEventListener('click', e => { if (e.target === backdrop) close(false); });
+    backdrop._escClose = () => close(false);
     backdrop.querySelector('.modal-close').addEventListener('click',        () => close(false));
     backdrop.querySelector('[data-confirm="no"]').addEventListener('click',  () => close(false));
     backdrop.querySelector('[data-confirm="yes"]').addEventListener('click', () => close(true));
@@ -62,7 +62,7 @@ export function confirmModal({
 
 // Centered, promise-returning text-input dialog — a drop-in replacement for the
 // native prompt(). Follows the house Modal Pattern. Resolves the entered string
-// on confirm; null on cancel / backdrop click / ✕ / Escape.
+// on confirm; null on cancel / ✕ / Escape. Backdrop click does nothing.
 //
 //   const note = await promptModal({ title: 'Rejection reason', placeholder: 'Optional' });
 //   if (note === null) return;   // cancelled
@@ -111,14 +111,15 @@ export function promptModal({
       if (required && !val.trim()) { ta.focus(); return; }
       close(val);
     };
-    // Escape is handled by the global modal-backdrop handler in app-init.js
-    // -- no per-modal Esc handler here, per the house Modal Pattern.
+    // Escape is handled by the global modal-backdrop handler in app-init.js via
+    // `_escClose`, set below -- no per-modal Esc handler here, per the house
+    // Modal Pattern. Backdrop click intentionally does nothing (accidental-close fix).
     const onKey = (e) => {
       // Enter submits; Shift+Enter inserts a newline (textarea default).
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
     };
 
-    backdrop.addEventListener('click', e => { if (e.target === backdrop) close(null); });
+    backdrop._escClose = () => close(null);
     backdrop.querySelector('.modal-close').addEventListener('click',       () => close(null));
     backdrop.querySelector('[data-prompt="cancel"]').addEventListener('click', () => close(null));
     backdrop.querySelector('[data-prompt="ok"]').addEventListener('click',     submit);
