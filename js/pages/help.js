@@ -110,6 +110,10 @@ function _userGuide() {
           '<strong>เอกสาร</strong> — ขอหนังสือรับรองการทำงานและดูเอกสารที่ออกให้คุณ'),
     _item('<strong>Evaluation</strong> — Complete your self-assessment when an evaluation cycle is open (H1 / H2).',
           '<strong>การประเมิน</strong> — กรอกแบบประเมินตนเองเมื่อเปิดรอบการประเมิน (H1 / H2)'),
+    _item('<strong>Part Numbers</strong> — On the <code>#part-numbers</code> page, mint a part number for an item in one of your projects. Each number follows <code>CCC-PPP-CAT-SEQ</code> (client code, project code, 3-letter category, sequence). Pick a category from the list — the help text shown under the picker explains what each category covers. Once minted, you can bump a revision with a note, and use <strong>Compare</strong> to see what changed between two revisions.',
+          '<strong>เลขชิ้นส่วน (Part Numbers)</strong> — ที่หน้า <code>#part-numbers</code> คุณสามารถออกเลขชิ้นส่วนให้กับรายการในโครงการของคุณได้ รูปแบบเลขคือ <code>CCC-PPP-CAT-SEQ</code> (รหัสลูกค้า รหัสโครงการ หมวดหมู่ 3 ตัวอักษร ลำดับ) เลือกหมวดหมู่จากรายการ — ข้อความช่วยเหลือที่แสดงใต้ตัวเลือกจะอธิบายว่าแต่ละหมวดครอบคลุมอะไรบ้าง เมื่อออกเลขแล้ว คุณสามารถอัปเดตรีวิชันพร้อมบันทึกหมายเหตุ และใช้ <strong>Compare</strong> เพื่อดูความแตกต่างระหว่างสองรีวิชัน'),
+    _item('<strong>Two-step leave approval</strong> — Some leave types need two approvals: your direct manager first, then HR/admin gives the final sign-off. If your request shows status <strong>Manager Approved</strong>, it has passed the first step but is not final yet — no action is needed from you; it will move to <strong>Approved</strong> once HR completes the second step.',
+          '<strong>การอนุมัติวันลาสองขั้นตอน</strong> — วันลาบางประเภทต้องผ่านการอนุมัติสองขั้นตอน: ผู้จัดการโดยตรงก่อน จากนั้น HR/ผู้ดูแลระบบจะอนุมัติขั้นสุดท้าย หากคำขอของคุณแสดงสถานะ <strong>Manager Approved</strong> แปลว่าผ่านขั้นตอนแรกแล้วแต่ยังไม่ใช่ขั้นสุดท้าย คุณไม่ต้องทำอะไรเพิ่มเติม ระบบจะเปลี่ยนเป็น <strong>Approved</strong> เมื่อ HR อนุมัติขั้นตอนที่สองเสร็จสิ้น'),
   ].join(''));
 
   const s3 = (_manager || _admin) ? _section('Approvals', 'การอนุมัติ', [
@@ -182,9 +186,26 @@ function _adminGuide() {
           '<strong>โครงการ</strong> — จัดการโครงการที่เรียกเก็บเงินได้และมอบหมายสมาชิก'),
     _item('<strong>Clients</strong> — Manage client company records and provision client login accounts.',
           '<strong>ลูกค้า</strong> — จัดการข้อมูลบริษัทลูกค้าและจัดสรรบัญชีเข้าสู่ระบบสำหรับลูกค้า'),
+    _item('<strong>Manage client logins</strong> — Clients page → <em>Manage client logins</em> icon on a client row → Provision a new login, Reset password, or Delete a login. After provisioning or resetting, use the <strong>Copy credentials</strong> button to copy the login details shown (they\'re shown once).',
+          '<strong>จัดการบัญชีเข้าสู่ระบบของลูกค้า</strong> — หน้าลูกค้า → ไอคอน <em>จัดการบัญชีเข้าสู่ระบบของลูกค้า</em> ที่แถวลูกค้า → จัดสรรบัญชีใหม่ รีเซ็ตรหัสผ่าน หรือลบบัญชี หลังจากจัดสรรหรือรีเซ็ตแล้ว ใช้ปุ่ม <strong>Copy credentials</strong> เพื่อคัดลอกข้อมูลเข้าสู่ระบบที่แสดง (แสดงเพียงครั้งเดียว)'),
+    _item('<strong>Client Portal</strong> — When a client logs in, they see only their own company\'s projects: summary hours per project (aggregated totals, not individual time entries) and their expenses/travel claims with employee identity masked. Client logins never see any employee names.',
+          '<strong>พอร์ทัลลูกค้า (Client Portal)</strong> — เมื่อลูกค้าเข้าสู่ระบบ จะเห็นเฉพาะโครงการของบริษัทตนเอง: ชั่วโมงทำงานสรุปต่อโครงการ (ยอดรวม ไม่ใช่รายการเวลาแต่ละรายการ) และค่าใช้จ่าย/ค่าเดินทางโดยปิดบังตัวตนพนักงาน บัญชีลูกค้าจะไม่เห็นชื่อพนักงานคนใดเลย'),
+    _item('<strong>Part Numbers — governance</strong> — Part Numbers page → <strong>Categories</strong> manages the 3-letter category code list; <strong>Lists</strong> manages the attribute lists (material, finish, vendor, fab process, color). Before a project can mint part numbers, its client needs a 3-letter code (set on the Clients page) and the project itself needs a 3-letter code (set on the Projects page). Each project\'s customer-facing PN mode (none / template / manual) is configured on the Projects page too.',
+          '<strong>เลขชิ้นส่วน — การกำกับดูแล</strong> — หน้าเลขชิ้นส่วน → <strong>Categories</strong> จัดการรายการรหัสหมวดหมู่ 3 ตัวอักษร; <strong>Lists</strong> จัดการรายการแอตทริบิวต์ (วัสดุ ผิวสำเร็จ ผู้จำหน่าย กระบวนการผลิต สี) ก่อนที่โครงการจะออกเลขชิ้นส่วนได้ ลูกค้าของโครงการต้องมีรหัส 3 ตัวอักษร (ตั้งค่าที่หน้าลูกค้า) และตัวโครงการเองต้องมีรหัส 3 ตัวอักษร (ตั้งค่าที่หน้าโครงการ) โหมดเลขชิ้นส่วนสำหรับลูกค้า (ไม่มี/เทมเพลต/กรอกเอง) ของแต่ละโครงการก็ตั้งค่าที่หน้าโครงการเช่นกัน'),
+    _item('<strong>HR approval step (2-tier leave)</strong> — Leave types configured for two-tier approval show an <strong>AWAITING HR APPROVAL</strong> section in Holidays → Approvals after the manager\'s initial approval. Review and click <strong>HR Approve</strong> there to finalize the request.',
+          '<strong>ขั้นตอนอนุมัติของ HR (การอนุมัติสองขั้นตอน)</strong> — วันลาที่ตั้งค่าให้อนุมัติสองขั้นตอนจะแสดงส่วน <strong>AWAITING HR APPROVAL</strong> ในหน้าวันหยุด → การอนุมัติ หลังจากผู้จัดการอนุมัติขั้นแรกแล้ว ตรวจสอบและกดปุ่ม <strong>HR Approve</strong> ที่นั่นเพื่ออนุมัติขั้นสุดท้าย'),
     _item('<strong>Reports</strong> — Full company-wide monthly expense and weekly wage reports.',
           '<strong>รายงาน</strong> — รายงานค่าใช้จ่ายรายเดือนและค่าจ้างรายสัปดาห์ระดับบริษัท'),
   ].join(''));
 
-  return s1 + s2 + s3 + s4;
+  const s5 = _section('Admin Logs', 'บันทึกการดำเนินการของผู้ดูแล', [
+    _item('<strong>#admin-logs page</strong> — An audit trail of actions across the system: leave/expense approvals and rejections, client login provisioning, employee edits, and more.',
+          '<strong>หน้า #admin-logs</strong> — บันทึกตรวจสอบการดำเนินการทั้งหมดในระบบ: การอนุมัติ/ปฏิเสธการลาและค่าใช้จ่าย การจัดสรรบัญชีลูกค้า การแก้ไขข้อมูลพนักงาน และอื่นๆ'),
+    _item('<strong>Filters</strong> — Narrow the log by entity type, by actor, and by date range.',
+          '<strong>ตัวกรอง</strong> — กรองบันทึกตามประเภทข้อมูล ผู้ดำเนินการ และช่วงวันที่'),
+    _item('<strong>Pagination</strong> — Results are paginated; use Prev/Next to page through older entries once there are more rows than fit on one page.',
+          '<strong>การแบ่งหน้า</strong> — ผลลัพธ์จะถูกแบ่งหน้า ใช้ปุ่ม Prev/Next เพื่อดูรายการเก่าเมื่อมีข้อมูลมากกว่าที่แสดงได้ในหน้าเดียว'),
+  ].join(''));
+
+  return s1 + s2 + s3 + s4 + s5;
 }
