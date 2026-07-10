@@ -212,7 +212,7 @@ Carried decisions still open: annual-leave-reset automation & pro-rating rules (
 > **This section is superseded by [FULL_EXECUTION_PLAN.md](FULL_EXECUTION_PLAN.md) Track B**
 > (B1–B9, ordered by value). Use that as the canonical post-launch roadmap.
 
-### ✅ CLIENT-01 · Client account management — SHIPPED R38–39 *(archived 2026-07-09)*
+### ✅ CLIENT-01 · Client account management — SHIPPED R38–39 *(archived 2026-07-10, R60)*
 **Shipped 2026-06-17 (R39), live in prod, audited 0-FAIL.** Client logins are provisioned
 via the admin **Clients → Manage logins** UI (7th Edge Fn `provision-client` + reset/delete),
 the `client` role is wired into login (Employee/Client toggle, ID-or-email), and a read-only

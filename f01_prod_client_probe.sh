@@ -251,7 +251,7 @@ check_zero "evaluation_cycles"   "evaluation_cycles"
 check_zero "evaluation_questions" "evaluation_questions"
 check_zero "evaluation_responses" "evaluation_responses"
 check_zero "login_attempts"      "login_attempts"
-# Round 54 (20260710_client_block_expanded.sql) additions
+# Round 57 (20260712_client_block_expanded.sql) additions
 check_zero "evaluations"                 "evaluations"
 check_zero "employee_documents"          "employee_documents"
 check_zero "employee_audit_log"          "employee_audit_log"
@@ -263,7 +263,7 @@ check_zero "deletion_requests"           "deletion_requests"
 check_zero "travel_claims"               "travel_claims"
 check_zero "project_assignments"         "project_assignments"
 check_zero "groups"                      "groups"
-# Round 59 (A3.5) Part Numbers additions — client must see 0 pn rows (client_block_*)
+# Round 60 (A3.5) Part Numbers additions — client must see 0 pn rows (client_block_*)
 check_zero "pn_items"          "pn_items"
 check_zero "pn_item_revisions" "pn_item_revisions"
 check_zero "pn_attributes"     "pn_attributes"

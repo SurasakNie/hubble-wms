@@ -183,7 +183,7 @@ entry were added to `HE_interactive_timesheet_plan.md` (RSK-2, reversible).
 | **2 — Timesheet → central hub (M1)** | Attendance fields, weekly submit/approve/lock, auto-fill slots. | Phase 3 | 📋 Roadmap (the only unbuilt module — Track B **B1** in FULL_EXECUTION_PLAN.md) |
 | **6 — Evaluation (M5)** | KPIs auto-derived from *approved* timesheets; review cycle. | Phases 2 + 4 | ✅ Built (R19) |
 | **7 — Auto-Doc (M6)** | Template engine + merge fields + e-signature; offer→onboarding pipeline. | Phases 3 + 6 | ✅ Built (R20–22) |
-| **1 — Auth overhaul** ⚠️ **LAST** | Admin-seeded accounts, OTP onboarding, link/unlink + freeze, RLS reconciliation sweep. | All phases complete | ✅ LIVE 2026-06-14 (shipped as Employee ID + admin password, optional TOTP w/ Skip — see auth note below) |
+| **1 — Auth overhaul** ⚠️ **LAST** | Admin-seeded accounts, OTP onboarding, link/unlink + freeze, RLS reconciliation sweep. | All phases complete | ✅ LIVE 2026-06-14 (shipped as Employee ID + admin password, optional TOTP w/ Skip — see the SUPERSEDED note in "Core finding" above) |
 
 The roadmap doc will also restate the handoff's **12 open decisions (OD-1…OD-12)** as blockers and
 note that the WMS uses a **5-role** matrix (Employee/Manager/HR Admin/Finance/System Admin) vs. the

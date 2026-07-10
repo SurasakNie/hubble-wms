@@ -203,7 +203,7 @@ $mustZeroTables = @(
   'evaluation_questions',
   'evaluation_responses',
   'login_attempts',
-  # Round 54 (20260710_client_block_expanded.sql) additions
+  # Round 57 (20260712_client_block_expanded.sql) additions
   'evaluations',
   'employee_documents',
   'employee_audit_log',
@@ -215,7 +215,7 @@ $mustZeroTables = @(
   'travel_claims',
   'project_assignments',
   'groups',
-  # Round 59 (A3.5) Part Numbers additions — client must see 0 pn rows (client_block_*)
+  # Round 60 (A3.5) Part Numbers additions — client must see 0 pn rows (client_block_*)
   'pn_items',
   'pn_item_revisions',
   'pn_attributes',
