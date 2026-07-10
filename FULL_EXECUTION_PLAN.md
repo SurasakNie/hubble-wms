@@ -52,7 +52,7 @@ A2 must precede A4 (the auditor needs corrected targets/URLs); A3 should precede
 
 ## A1 · Apply `20260709_lint_search_path_and_execute_hardening.sql` in Studio
 
-**Status:** ⚠️ **instructions given 2026-07-09 — confirmation not received, session paused mid-A0/A1 sitting (R59).** File content was pasted to the user for Step 3 of the same sitting as A0, but the conversation moved on to the client-probe question before a run/VERIFY result was reported back. **Do not assume this is applied — re-confirm from scratch before relying on it.** · **Owner:** 🧑 · **Effort:** S · **Depends:** nothing
+**Status:** ✅ **DONE — applied + verified live 2026-07-09 (R59).** All 3 footer VERIFY queries, run individually in Studio, returned 0 rows (search_path pins present; no anon-executable SECURITY DEFINER fn; trigger fns no longer authenticated-executable). · **Owner:** 🧑 · **Effort:** S (done) · **Depends:** nothing
 
 **Why:** closes Supabase linter security WARNs 0011 (12 functions with mutable `search_path`) and 0028 (27 SECURITY DEFINER functions executable by `anon`). The 0028 item is the one that matters — it's the same class as the real `get_project_stats` anon leak fixed in `20260630`.
 
@@ -348,10 +348,10 @@ Recommendation standing since 2026-06-12: **Supabase Pro first** ($25/mo — man
 
 | When | Who | What |
 |---|---|---|
-| Now | 🧑 | **A0 done (2026-07-09) — only A1 left:** paste + run `20260709_lint_search_path_and_execute_hardening.sql` in Studio + its 3 VERIFY queries — not yet confirmed |
-| Next 🤖 session | 🤖 | **A2 + A3** — all doc fixes + audit coverage extensions in one push |
+| ✅ Done 2026-07-09 | 🧑 | **A0 + A1** — all three Studio migrations applied + verified (client probe 34/34; 3 lint VERIFY queries 0 rows) |
+| **Now** | 🤖 | **A2 + A3** — all audit-doc fixes + audit coverage extensions (CORS regression block, Part Numbers policy/walkthrough/integrity, probe pn checks) in one push |
 | After A2/A3 | 🧑/🌐 | **A4** — run the execution packet against prod |
-| Parallel any time | 🤖 | **A5** Help page rebuild (needs cache bump v=121) · **A6.1** template drafts if wanted |
+| Parallel any time | 🤖 | **A5** Help page rebuild (needs cache bump — next is v=123) · **A6.1** template drafts if wanted |
 | Then | 🧑 | **A7** team review → **A8** roster swap (3 confirms) → **GO-LIVE** |
 | At go-live | 🤖+🧑 | **B2** Sheets daily export (needs Sheet URL) · **B4** toggles |
 | First post-launch build | 🤖 | **B1** M1 Central Hub (planning session first — settle D1–D5) |
