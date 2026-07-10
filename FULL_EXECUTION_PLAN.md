@@ -35,23 +35,18 @@ A2 must precede A4 (the auditor needs corrected targets/URLs); A3 should precede
 
 ## A0 · Apply the PR #26 salvage migrations in Studio *(added 2026-07-09, R57)*
 
-**Status:** ✅ **migrations applied + verified 2026-07-09 (R59)** — client-probe re-run still open, see below · **Owner:** 🧑 · **Effort:** S (done) · **Depends:** nothing
+**Status:** ✅ **DONE — applied, verified via SQL, and enforcement proven live via client probe (2026-07-09, R59).** · **Owner:** 🧑 · **Effort:** S (done)
 
 **Why:** salvaged from the orphaned PR #26 audit (2026-07-03, never merged). `20260708`'s hand-maintained client-block list missed 12 internal tables — worst: **`employee_compensation` (salary/rate PII)**, which the app really reads (`js/api/employees.js:210`) and which the F-01 probe never covered (it probed the wrong table name, `compensation_records`). Both migrations are deny-only / defense-in-depth — safe even where base RLS already protects a table.
 
 **Done:**
 1. ✅ `20260712_client_block_expanded.sql` applied — `pg_policies` confirms all 12 new `client_block_*` policies + the `audit_log_select_admin` swap to `is_admin()`.
 2. ✅ `20260712b_f05_rpc_search_path.sql` applied — `pg_proc.proconfig` confirms `search_path=public, pg_temp` on all 3 F-05 RPCs.
+3. ✅ **Live enforcement proven**: `f01_prod_client_probe.ps1` run against a genuine `role='client'` login (`Delos.Test1@example.mail`, Delos Incorporated) — **34 PASS / 0 FAIL**. Own-scope access correct (1 profile, 1 client company, 3 projects); all 23 internal/PII tables incl. the 12 newly-blocked ones return 0 rows; all writes denied.
 
-**Still open — client-probe re-run:**
-- First two probe attempts (`hubbleengineering@gmail.com`) came back **17 PASS / 17 FAIL**, which looked alarming but is a **false alarm**: that account is `role='manager'` (the long-standing test account "David Bowman"), not a client. The RESTRICTIVE `client_block_*` policies key off `auth_is_client()`, which is correctly `false` for non-client roles — so a manager retaining full team-data visibility (leave requests, evaluations, groups, etc.) is expected, correct behavior, not a leak. `get_client_project_summary → 400` is likewise expected for a non-client caller. **Lesson for next time: the F-01 probe must be run with an actual `role='client'` login — testing with an admin/manager account will always show this same false-positive pattern.**
-- Found 2 existing client-role logins, both under **Delos Incorporated** (`profiles.id` = `cb45d583-f743-4d14-9399-21d863c84c1e` and `bcdaa08b-d64d-4fcb-963c-d1849783143d`). Neither's password is known/recoverable — next step is **Clients page → Delos Incorporated → Manage logins → Reset pw** on either one, then re-run:
-  ```powershell
-  .\supabase\probes\f01_prod_client_probe.ps1 <email-or-code-from-that-login> <new-password>
-  ```
-  Target **0 FAIL**, ~35 checks. This was in progress when the session paused (2026-07-09) — pick up here.
+*(Side note kept for the record: the first two probe attempts used `hubbleengineering@gmail.com`, `role='manager'` — produced a false-alarm 17 PASS/17 FAIL. Non-client roles correctly bypass the RESTRICTIVE `client_block_*` policies (`auth_is_client()` is false for them), so full team-data visibility there was expected, not a leak. Lesson: the F-01 probe must always be run with a genuine `role='client'` login.)*
 
-**Acceptance:** probe 0 FAIL; a client JWT gets 0 rows from all 12 tables; admin still sees Admin Logs (audit_log policy swap is behaviour-preserving).
+**Acceptance:** probe 0 FAIL; a client JWT gets 0 rows from all 12 tables; admin still sees Admin Logs (audit_log policy swap is behaviour-preserving). **✅ All met.**
 
 ---
 
@@ -353,7 +348,7 @@ Recommendation standing since 2026-06-12: **Supabase Pro first** ($25/mo — man
 
 | When | Who | What |
 |---|---|---|
-| Now | 🧑 | **Resume A0/A1 (R59 paused here 2026-07-09):** (1) reset a Delos Incorporated client login's password (Clients → Manage logins) → re-run `f01_prod_client_probe.ps1` with it, target 0 FAIL; (2) still need to paste + run `20260709_lint_search_path_and_execute_hardening.sql` (A1) + its 3 VERIFY queries — not yet confirmed |
+| Now | 🧑 | **A0 done (2026-07-09) — only A1 left:** paste + run `20260709_lint_search_path_and_execute_hardening.sql` in Studio + its 3 VERIFY queries — not yet confirmed |
 | Next 🤖 session | 🤖 | **A2 + A3** — all doc fixes + audit coverage extensions in one push |
 | After A2/A3 | 🧑/🌐 | **A4** — run the execution packet against prod |
 | Parallel any time | 🤖 | **A5** Help page rebuild (needs cache bump v=121) · **A6.1** template drafts if wanted |
