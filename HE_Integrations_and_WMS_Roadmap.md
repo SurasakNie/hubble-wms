@@ -128,9 +128,12 @@ Google Sheet  ──bound──►  Apps Script project (Code.gs)
 
 ## Part 2 — WMS expansion roadmap (DOCUMENT ONLY, do not build)
 
-Create `WMS-expansion-roadmap.md`: a gap analysis between the current build and
-`WMS-handoff-v1.0.md`, plus a phased plan. Also add a short pointer + the new integration entry to
-`HE_interactive_timesheet_plan.md` (RSK-2, reversible).
+The WMS expansion roadmap (gap analysis between the current build and
+`WMS-handoff-v1.0.md`, plus a phased plan) lives in this section below — the
+originally-planned standalone `WMS-expansion-roadmap.md` was never created; its
+content is here and, for launch sequencing, in
+[FULL_EXECUTION_PLAN.md](FULL_EXECUTION_PLAN.md). A short pointer + the new integration
+entry were added to `HE_interactive_timesheet_plan.md` (RSK-2, reversible).
 
 ### Sequencing decision (2026-06-06)
 
@@ -139,6 +142,14 @@ Create `WMS-expansion-roadmap.md`: a gap analysis between the current build and
 ---
 
 ### Core finding — two foundational reworks gate everything else
+
+> **⚠️ SUPERSEDED (auth, item 1 below).** The OTP-onboarding / freeze-on-unlink design
+> described here was **not** shipped. The auth overhaul went live 2026-06-14 as a
+> simpler model: **Employee ID + admin-issued password** (sign-ups disabled, accounts
+> admin-provisioned), with **optional TOTP (Skip allowed)** and admin Deactivate/
+> Reactivate instead of freeze-on-unlink. See the 🔐 login section in
+> [PENDING_TASKS.md](PENDING_TASKS.md) for the shipped spec. The text below is kept for
+> historical context only.
 
 1. **Auth model is fundamentally different.**
    - *Today:* self-service Google OAuth; anyone with a Google account can sign in; `profiles` row
@@ -165,14 +176,14 @@ Create `WMS-expansion-roadmap.md`: a gap analysis between the current build and
 
 | Phase | Scope | Depends on | Status |
 |---|---|---|---|
-| **0 (done/near-done)** | Current tracker, Projects, Clients, Team, Tags; Reports stub still pending. | — | ✅ Done |
+| **0 (done)** | Current tracker, Projects, Clients, Team, Tags; Reports (project stats, tag usage) live. | — | ✅ Done |
 | **3 — Employee DB (M3)** | Master employee record; Employee ID (`DD-T-NNN-CC`); audit trail, doc-expiry alerts. | — | ✅ Built & working |
 | **4 — Leave & Holiday (M2)** | Leave types/balances, holiday calendar, 3-tier request flow → auto-fills timesheet. | Phase 3 | ✅ Built & working |
 | **5 — Expense & Travel (M4)** | Claims + travel approval; trip approval auto-fills timesheet. | Phase 3 | ✅ Built & signed off (R17, 2026-06-10) |
-| **2 — Timesheet → central hub (M1)** | Attendance fields, weekly submit/approve/lock, auto-fill slots. | Phase 3 | 📋 Roadmap |
-| **6 — Evaluation (M5)** | KPIs auto-derived from *approved* timesheets; review cycle. | Phases 2 + 4 | 🔨 Next build target |
-| **7 — Auto-Doc (M6)** | Template engine + merge fields + e-signature; offer→onboarding pipeline. | Phases 3 + 6 | 📋 Roadmap |
-| **1 — Auth overhaul** ⚠️ **LAST** | Admin-seeded accounts, OTP onboarding, link/unlink + freeze, RLS reconciliation sweep. | All phases complete | ⏸ Before launch |
+| **2 — Timesheet → central hub (M1)** | Attendance fields, weekly submit/approve/lock, auto-fill slots. | Phase 3 | 📋 Roadmap (the only unbuilt module — Track B **B1** in FULL_EXECUTION_PLAN.md) |
+| **6 — Evaluation (M5)** | KPIs auto-derived from *approved* timesheets; review cycle. | Phases 2 + 4 | ✅ Built (R19) |
+| **7 — Auto-Doc (M6)** | Template engine + merge fields + e-signature; offer→onboarding pipeline. | Phases 3 + 6 | ✅ Built (R20–22) |
+| **1 — Auth overhaul** ⚠️ **LAST** | Admin-seeded accounts, OTP onboarding, link/unlink + freeze, RLS reconciliation sweep. | All phases complete | ✅ LIVE 2026-06-14 (shipped as Employee ID + admin password, optional TOTP w/ Skip — see auth note below) |
 
 The roadmap doc will also restate the handoff's **12 open decisions (OD-1…OD-12)** as blockers and
 note that the WMS uses a **5-role** matrix (Employee/Manager/HR Admin/Finance/System Admin) vs. the
@@ -233,7 +244,10 @@ handoff.
 | **Create** | `integrations/google-sheets/Code.gs` |
 | **Create** | `integrations/google-sheets/appsscript.json` |
 | **Create** | `integrations/google-sheets/README.md` |
-| **Create** | `WMS-expansion-roadmap.md` |
 | **Modify** | `HE_interactive_timesheet_plan.md` — add an "Integrations: daily Google Sheets export" note + a pointer to the roadmap; bump the status table. |
+
+*(The originally-planned `WMS-expansion-roadmap.md` was never created — the WMS
+expansion roadmap lives in Part 2 of this document and, for launch sequencing, in
+[FULL_EXECUTION_PLAN.md](FULL_EXECUTION_PLAN.md).)*
 
 **No changes** to `js/`, `css/`, `supabase/`, `app.html`, or `index.html`.

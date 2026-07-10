@@ -18,8 +18,12 @@
 #                employee_audit_log, leave_balances, flex_holiday_swaps,
 #                job_title_change_requests, name_change_requests,
 #                deletion_requests, travel_claims, project_assignments,
-#                groups all return 0 rows
-#   WRITE DENY — INSERT into projects returns 4xx
+#                groups, pn_items, pn_item_revisions, pn_attributes,
+#                pn_type_codes, pn_project_config, pn_counters all return 0 rows
+#   WRITE DENY — INSERT into projects / pn_items returns 4xx
+#
+#   Total: 41 checks (34 R59 baseline + 7 A3.5 Part Numbers).
+#   Run against a genuine role='client' login — never admin/manager (R59 lesson).
 
 set -euo pipefail
 
@@ -259,6 +263,13 @@ check_zero "deletion_requests"           "deletion_requests"
 check_zero "travel_claims"               "travel_claims"
 check_zero "project_assignments"         "project_assignments"
 check_zero "groups"                      "groups"
+# Round 59 (A3.5) Part Numbers additions — client must see 0 pn rows (client_block_*)
+check_zero "pn_items"          "pn_items"
+check_zero "pn_item_revisions" "pn_item_revisions"
+check_zero "pn_attributes"     "pn_attributes"
+check_zero "pn_type_codes"     "pn_type_codes"
+check_zero "pn_project_config" "pn_project_config"
+check_zero "pn_counters"       "pn_counters"
 check_view_blocked "client_project_totals (view)" "client_project_totals"
 
 echo ""
@@ -296,6 +307,8 @@ check_write_denied "time_entries"      "time_entries"      '{"user_id":"00000000
 check_write_denied "cash_transactions" "cash_transactions" '{"project_id":"00000000-0000-0000-0000-000000000000","amount":1,"direction":"out","txn_date":"2020-01-01"}'
 check_write_denied "travel_requests"   "travel_requests"   '{"project_id":"00000000-0000-0000-0000-000000000000","destination":"probe","start_date":"2020-01-01","end_date":"2020-01-01"}'
 check_write_denied "leave_requests"    "leave_requests"    '{"employee_id":"00000000-0000-0000-0000-000000000000","leave_type_code":"annual","start_date":"2020-01-01","end_date":"2020-01-01"}'
+# A3.5 — direct INSERT into pn_items must be blocked (no INSERT policy; minting is RPC-only)
+check_write_denied "pn_items"          "pn_items"          '{"project_id":"00000000-0000-0000-0000-000000000000","cat_code":"PRT","seq":1,"part_number":"PROBE-XXX-PRT-999","name":"probe"}'
 
 echo ""
 echo "── 5. clients table (own row only) ──────────────────────────"

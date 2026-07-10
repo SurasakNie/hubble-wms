@@ -10,7 +10,13 @@ It has five phases. Each phase has a clear pass/fail gate.
 
 ### 1A · Anon probe (re-run against prod)
 Re-run the anon probe (equiv. `anon_probe.scratch.ps1`) against prod after all
-migrations through `20260708` are applied. Target: **45/45 PASS** (same as R39).
+migrations through `20260712b` are applied. **Re-baseline the target on first run** —
+the old **45/45** bar predates several ship events: it does not cover the `audit_log`
+table (R45), the 6 `pn_*` tables (R54/55), or the 4 `pn_*` RPCs (R54/55). Add those
+per **A3.6** (6 `pn_*` tables + `audit_log` → anon SELECT denied/0 rows; 4 pn RPCs
+`pn_create_item`/`pn_bump_revision`/`pn_item_snapshot`/`pn_render_template` → 401/
+permission error, grants stripped in `20260711` + A1). **New target ≈ 56/56 — record
+the exact printed total on the first re-baseline run.**
 
 Checks: no table is readable without auth, no RPC leaks to anon, auth
 endpoints return 401 for bad creds.
@@ -31,7 +37,15 @@ Log in as a `manager`. Verify:
 - [ ] Cannot see compensation records
 
 ### 1D · Client probe (already passed — re-run as regression)
-Re-run `f01_prod_client_probe.ps1`. Target: **22/22 PASS**.
+Re-run `f01_prod_client_probe.ps1` **against a genuine `role='client'` login**
+(never an admin/manager — a non-client role correctly bypasses the RESTRICTIVE
+`client_block_*` policies and produces a false-alarm mixed PASS/FAIL, R59 lesson).
+Target: **0 FAIL**. The check count has grown well past the old R49 bar — R51
+added the `client_project_totals` view check, R57 (PR #26 salvage) added
+`employee_compensation` + 11 more `client_block_*` tables (R59 ran **34/34, 0 FAIL**),
+and **A3.5 adds 6 `pn_*` tables + a `pn_items` write-denied check → 41 checks total**.
+Expect **41 PASS / 0 FAIL** for a populated client (0-project clients WARN on
+`get_client_project_summary`, still no FAIL).
 
 ### 1E · Edge Function input validation
 For each of the 7 Edge Functions, send malformed input and verify 400/422:
@@ -49,10 +63,24 @@ Policies added after the last full audit (`20260701`):
 - `20260706` — client role scoping (is_my_client_project)
 - `20260707` — client_read_hardening (7 policies)
 - `20260708` — client_block_* RESTRICTIVE on 11 tables (new function auth_is_client)
+- `20260710` — Part Numbers v1 policies (pn_projects/pn_type_codes/pn_counters/pn_items/pn_item_revisions)
+- `20260711` — Part Numbers v2 policies (pn_attributes/pn_project_config + client_block_* RESTRICTIVE on all 6 pn_* tables)
+- `20260712` — client_block_* RESTRICTIVE on 12 more tables (incl. `employee_compensation`) + `audit_log_select_admin` → `is_admin()`
 - `20260629` — audit_log INSERT (actor_id = auth.uid() enforced?)
 - `20260630` — leave_requests status CHECK widened (manager_approved)
 
 Verify each in Studio: `SELECT tablename, policyname, permissive, cmd, qual, with_check FROM pg_policies WHERE policyname IN (...) ORDER BY tablename, policyname;`
+
+**Part Numbers policy check (A3):**
+```sql
+SELECT tablename, policyname, permissive, cmd FROM pg_policies
+WHERE tablename IN ('pn_attributes','pn_project_config','pn_counters',
+                    'pn_items','pn_item_revisions','pn_type_codes')
+ORDER BY tablename, policyname;
+-- Expect 16 policies incl. RESTRICTIVE client_block_* on all 6 tables.
+SELECT count(*) FROM pg_policies WHERE tablename='pn_items' AND cmd='INSERT';
+-- POSITIVE CONTROL — expect 0: minting is RPC-only (pn_create_item), no INSERT policy.
+```
 
 ### 1G · Audit log INSERT policy
 The `audit_log` table must enforce `actor_id = auth.uid()` in WITH CHECK.
@@ -77,8 +105,8 @@ via Phase 2D (approve a name-change request end-to-end).
 ## Phase 2 — Functional walkthrough (role by role)
 
 Use the production app at https://surasaknie.github.io/hubble-wms/
-(transferred from `he-cells.github.io` 2026-07-03 — see
-[REPO_TRANSFER_CHECKLIST.md](REPO_TRANSFER_CHECKLIST.md)).
+(transfer completed 2026-07-03 — see
+[REPO_TRANSFER_CHECKLIST.md](REPO_TRANSFER_CHECKLIST.md); the old URL is dead, no redirect).
 Test with the sci-fi roster accounts (before roster swap).
 
 ### 2A · Calendar & Timesheet
@@ -111,7 +139,7 @@ Test with the sci-fi roster accounts (before roster swap).
 
 ### 2E · Clients & Documents
 - [ ] Admin: add client, manage logins, provision client login
-- [ ] Documents: upload template, merge with employee data, preview
+- [ ] Documents: create a template in the TEMPLATES editor, merge with employee data, preview
 - [ ] Reports: project stats, tag usage (admin/manager only)
 
 ### 2F · Admin Logs
@@ -125,6 +153,19 @@ Test with the sci-fi roster accounts (before roster swap).
 - [ ] Expenses & travel table shows own rows only
 - [ ] Export (text) download contains correct data only
 - [ ] No employee names visible anywhere
+
+### 2H · Part Numbers (R54/55 — new)
+- [ ] Admin/manager: mint a PN on a real project → format `CCC-PPP-CAT-SEQ`; clear error if the project/client `code` is missing
+- [ ] **Member**: can mint, but Categories/Lists/Customer-PN managers are hidden/denied (manage is admin/manager-only)
+- [ ] Client login: `#part-numbers` shows nothing / no data (client_block_*)
+- [ ] Category picker shows 11 governed codes with "covers" help + decision ladder
+- [ ] Attribute dropdowns default to **TBD** when unset; Lists modal opens (R55 regression: the Lists-button bug)
+- [ ] Client filter narrows the project picker
+- [ ] Revision bump writes a history row; ⓘ info modal → **Compare** diffs two revisions
+- [ ] Deep link `#part-numbers?project=<id>` from a Projects row preselects the project
+- [ ] Duplicate customer PN (same project, case-insensitive) rejected **without burning a sequence number**
+- [ ] Delete an item (admin) → next mint does **not** reuse the number (gap-free, never-reused)
+- [ ] Clients page: `code` (CCC) input saves; Projects page: `code` (PPP) input saves; uniqueness enforced
 
 ---
 
@@ -161,6 +202,25 @@ FROM leave_balances GROUP BY 1,2,3 HAVING COUNT(*) > 1;
 -- Profiles with role='client' but no client_id (broken provisioning)
 SELECT id, role, client_id FROM profiles WHERE role='client' AND client_id IS NULL;
 -- Expected: 0 rows
+```
+
+### Part Numbers integrity (A3 — all expect 0 rows)
+```sql
+-- P1. Internal PN uniqueness (belt+braces vs the UNIQUE constraint)
+SELECT part_number, COUNT(*) FROM pn_items GROUP BY 1 HAVING COUNT(*)>1;
+-- P2. Counter consistency: last_seq must cover MAX(seq) per (project, category)
+SELECT i.project_id, i.cat_code, MAX(i.seq) AS max_seq, c.last_seq
+FROM pn_items i
+LEFT JOIN pn_counters c ON c.project_id=i.project_id AND c.scope=i.cat_code
+GROUP BY i.project_id, i.cat_code, c.last_seq
+HAVING c.last_seq IS NULL OR MAX(i.seq) > c.last_seq;
+-- P3. Items whose project/client lost its code (should be impossible post-v2)
+SELECT i.id, i.part_number FROM pn_items i
+JOIN projects p ON p.id=i.project_id
+LEFT JOIN clients cl ON cl.id=p.client_id
+WHERE p.code IS NULL OR cl.code IS NULL;
+-- P4. Revisions missing their snapshot (v2 wiped test data; all current rows are v2-minted)
+SELECT id, item_id, revision FROM pn_item_revisions WHERE snapshot IS NULL;
 ```
 
 ---
@@ -253,8 +313,7 @@ Cache bump: `app.html`'s page-module `V` constant `113→114` (now lives in
 **⚠️ Not yet verified live** — this container has no network access to prod
 Supabase or GitHub Pages (confirmed via a hard 403 gateway policy denial), so
 "0 CSP violations in console" could not be checked from here. **Still needs a
-post-push spot-check**: hard-refresh https://he-cells.github.io/hubble-wms/ (or the
-new-account URL after the pending repo transfer) and
+post-push spot-check**: hard-refresh https://surasaknie.github.io/hubble-wms/ and its
 index.html, open DevTools → Console, confirm zero CSP violations, and confirm
 login + app boot + font rendering all still work.
 
@@ -276,9 +335,12 @@ database-linter security WARNs. Cross-checked every function against the
   as RPCs anyway; triggers don't check caller EXECUTE).
 
 **Residual warnings that are ACCEPTED / by-design (do not re-flag):** 0029 will
-still fire for the **9 real RPCs** (called from `js/` by admins/managers) and
-the **10 RLS-helper fns** (invoked inside policy `USING`/`CHECK` as the
-`authenticated` user). Both MUST keep EXECUTE for `authenticated` — revoking
+still fire for the **9 real RPCs** (called from `js/` by admins/managers), the
+**10 RLS-helper fns** (invoked inside policy `USING`/`CHECK` as the `authenticated`
+user), **and the 4 `pn_*` functions** (`pn_create_item`, `pn_bump_revision`,
+`pn_item_snapshot`, `pn_render_template` — self-hardened in `20260711` with pinned
+`search_path`; they must stay authenticated-executable for the Part Numbers page to
+mint/bump). All of these MUST keep EXECUTE for `authenticated` — revoking
 would break the app and RLS. These are intentional, not unfinished.
 
 **Apply:** run the file in Supabase Studio → SQL Editor, then run the commented
@@ -293,13 +355,15 @@ Dashboard toggle (L-PWLEAK).
 
 | Phase | Gate |
 |-------|------|
-| 1A anon probe | 45/45 PASS |
-| 1B–1D role probes | 0 issues found |
-| 1E–1H policy/RPC checks | All policies present; F-05 RPCs in prod ✅ verified 2026-06-30 (3 rows) — regression re-check only |
-| 2A–2G functional walkthrough | 0 blocking bugs |
-| 3 data integrity | All queries return 0 rows |
-| 4A–4E UI/UX | 0 dark-theme violations, 0 broken states |
+| 1A anon probe | 0 FAIL — re-baseline (~56, was 45/45; now covers `audit_log` + 6 `pn_*` tables + 4 pn RPCs) |
+| 1B–1C role probes | 0 issues found |
+| 1D client probe | 0 FAIL (41 checks: 34 R59 baseline + 7 Part Numbers; run as a real `role='client'` login) |
+| 1E–1H policy/RPC checks | All policies present (incl. 16 pn + CORS regression: 7 fns echo new origin, none echo old); F-05 RPCs in prod ✅ verified 2026-06-30 (3 rows) — regression re-check only |
+| 2A–2H functional walkthrough | 0 blocking bugs (2H = Part Numbers) |
+| 3 data integrity | All queries return 0 rows (incl. P1–P4 Part Numbers) |
+| 4A–4E UI/UX | 0 dark-theme violations, 0 broken states, 0 CSP console violations |
 | 5 triage | F-05 ✅ verified in prod (Phase 1H, done); CONV-M4 ✅ verified resolved; L-CSP ✅ fixed (⚠️ live console check still pending — see below); others explicitly deferred |
+| Help-page gate (exec-order step 3) | `js/pages/help.js` covers Part Numbers, Admin Logs, Account Status, Client Portal in EN + TH before team review (A5) |
 
 **All phases green → roster swap may proceed.**
 

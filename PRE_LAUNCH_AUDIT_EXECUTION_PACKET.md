@@ -5,7 +5,7 @@
 access to prod Supabase or GitHub Pages — confirmed via a hard 403 policy denial at
 the environment's outbound proxy (`curl "$HTTPS_PROXY/__agentproxy/status"` shows
 `connect_rejected` for both `sjkggguedgtynktymzes.supabase.co` and
-`he-cells.github.io`). So Phases 1A, 1D, 1E, 1F, 1G, 3 (Studio SQL / curl) and
+`surasaknie.github.io`). So Phases 1A, 1D, 1E, 1F, 1G, 3 (Studio SQL / curl) and
 Phases 1B, 1C, 2, 4 (live-browser) of the audit plan cannot be executed from that
 container under any circumstances.
 
@@ -20,15 +20,25 @@ sections), then report pass/fail back so the results can be folded into
 ## Phase 1A — Anon probe
 
 Re-run the anon probe script (kept locally, gitignored — not in this repo checkout).
-If you don't have it handy, it re-checks the same 39 tables + 4 RPCs as the R23
-baseline (`AUDIT_2026-06-11_GOLIVE.md`) with no auth token, expecting every one to
+If you don't have it handy, it re-checks the R23 baseline tables + RPCs
+(`AUDIT_2026-06-11_GOLIVE.md`) with no auth token, expecting every one to
 be denied/empty.
 
 ```
 ./anon_probe.scratch.ps1   # or whatever your local copy is named
 ```
 
-**Target: 45/45 PASS** (same bar as R39/R40).
+**Re-baseline the target** — the old **45/45** bar predates `audit_log` (R45), the
+6 `pn_*` tables and 4 `pn_*` RPCs (R54/55). Before re-running, extend the local
+script to add:
+- 6 `pn_*` tables — `pn_attributes`, `pn_project_config`, `pn_counters`, `pn_items`,
+  `pn_item_revisions`, `pn_type_codes` — anon SELECT → 0 rows/denied.
+- `audit_log` — anon SELECT → 0 rows/denied.
+- 4 pn RPCs — `pn_create_item`, `pn_bump_revision`, `pn_item_snapshot`,
+  `pn_render_template` — anon POST → 401/permission error (grants stripped in
+  `20260711` + A1).
+
+**New target ≈ 56/56** — record the exact printed total on the first re-baseline run.
 
 ---
 
@@ -40,7 +50,11 @@ chmod +x f01_prod_client_probe.sh
 ```
 
 Needs a test client account already provisioned (admin Clients page → provision a
-login). **Target: 22/22 PASS** (same as R49).
+login). **Run it against a genuine `role='client'` login — never an admin/manager**
+(a non-client role correctly bypasses the RESTRICTIVE `client_block_*` policies and
+produces a false-alarm mixed PASS/FAIL — R59 lesson). **Target: 0 FAIL. 41 checks**
+(34 verified in R59 + 7 added by A3.5: 6 `pn_*` tables + a `pn_items` write-denied
+check). 0-project clients WARN on `get_client_project_summary` but still 0 FAIL.
 
 ---
 
@@ -132,6 +146,31 @@ curl -si -X POST "$EDGE/provision-client" \
 that could indicate an unhandled crash leaking a stack trace); every malformed-input
 call returns 400/422 with a JSON error body, not a 500.
 
+### CORS regression test (A3.1 — catches the R53 outage class)
+
+The R53 repo transfer silently broke login because every Edge Function's
+`ALLOWED_ORIGINS` was hardcoded to the old `he-cells.github.io` domain. The input-
+validation block above sends no `Origin` header, so it cannot catch this. Run:
+
+```bash
+EDGE="https://sjkggguedgtynktymzes.supabase.co/functions/v1"
+NEW_O="https://surasaknie.github.io"; OLD_O="https://he-cells.github.io"
+for FN in login provision-users admin-reset-password admin-set-account-active \
+          admin-clear-mfa account-activation-status provision-client; do
+  echo "== $FN — new origin (EXPECT ACAO: $NEW_O)"
+  curl -si -X OPTIONS "$EDGE/$FN" -H "Origin: $NEW_O" \
+    -H 'Access-Control-Request-Method: POST' \
+    -H 'Access-Control-Request-Headers: authorization,content-type' \
+    | grep -i '^access-control-allow-origin' || echo '  !! no ACAO — FAIL'
+  echo "== $FN — old origin (EXPECT no ACAO echo)"
+  curl -si -X OPTIONS "$EDGE/$FN" -H "Origin: $OLD_O" \
+    -H 'Access-Control-Request-Method: POST' \
+    | grep -i "access-control-allow-origin.*he-cells" \
+    && echo '  !! old origin still allowed — remove from ALLOWED_ORIGINS' || echo '  ok'
+done
+```
+**Pass:** all 7 echo the new origin; none echo the old one.
+
 ---
 
 ## Phase 1F — New policy review (SQL, run in Studio)
@@ -164,6 +203,21 @@ ORDER BY tablename, policyname;
 
 **Pass:** all expected policies present, `with_check` non-null where a WITH CHECK
 is expected (especially `profiles_update_own`, `audit_log_insert_own`).
+
+### Part Numbers policy review (A3.2 — `20260710`/`20260711`)
+
+```sql
+SELECT tablename, policyname, permissive, cmd FROM pg_policies
+WHERE tablename IN ('pn_attributes','pn_project_config','pn_counters',
+                    'pn_items','pn_item_revisions','pn_type_codes')
+ORDER BY tablename, policyname;
+-- Expect 16 policies incl. RESTRICTIVE client_block_* on all 6 tables.
+SELECT count(*) FROM pg_policies WHERE tablename='pn_items' AND cmd='INSERT';
+-- POSITIVE CONTROL — expect 0: minting is RPC-only (pn_create_item), no INSERT policy.
+```
+
+**Pass:** 16 rows total, one RESTRICTIVE `client_block_*` per pn table, and 0 INSERT
+policies on `pn_items`.
 
 ---
 
@@ -221,13 +275,33 @@ FROM leave_balances GROUP BY 1,2,3 HAVING COUNT(*) > 1;
 SELECT id, role, client_id FROM profiles WHERE role='client' AND client_id IS NULL;
 ```
 
+### Part Numbers integrity (A3.4 — all expect 0 rows)
+
+```sql
+-- P1. Internal PN uniqueness (belt+braces vs the UNIQUE constraint)
+SELECT part_number, COUNT(*) FROM pn_items GROUP BY 1 HAVING COUNT(*)>1;
+-- P2. Counter consistency: last_seq must cover MAX(seq) per (project, category)
+SELECT i.project_id, i.cat_code, MAX(i.seq) AS max_seq, c.last_seq
+FROM pn_items i
+LEFT JOIN pn_counters c ON c.project_id=i.project_id AND c.scope=i.cat_code
+GROUP BY i.project_id, i.cat_code, c.last_seq
+HAVING c.last_seq IS NULL OR MAX(i.seq) > c.last_seq;
+-- P3. Items whose project/client lost its code (should be impossible post-v2)
+SELECT i.id, i.part_number FROM pn_items i
+JOIN projects p ON p.id=i.project_id
+LEFT JOIN clients cl ON cl.id=p.client_id
+WHERE p.code IS NULL OR cl.code IS NULL;
+-- P4. Revisions missing their snapshot (v2 wiped test data; all current rows are v2-minted)
+SELECT id, item_id, revision FROM pn_item_revisions WHERE snapshot IS NULL;
+```
+
 ---
 
 ## Phase 1B — Member role probe (browser checklist)
 
 Log in as a regular `member` sci-fi roster account at
-https://he-cells.github.io/hubble-wms/ (or the new-account URL after the pending
-repo transfer — see [REPO_TRANSFER_CHECKLIST.md](REPO_TRANSFER_CHECKLIST.md)) and walk through in order:
+https://surasaknie.github.io/hubble-wms/ (see
+[REPO_TRANSFER_CHECKLIST.md](REPO_TRANSFER_CHECKLIST.md)) and walk through in order:
 
 1. [ ] Timesheet/Tracker shows only own time entries, not other employees'
 2. [ ] Hand-type `#clients`, `#employees`, `#reports`, `#admin-logs` in the URL bar — each bounces (toast + redirect to `#calendar`)
@@ -249,7 +323,7 @@ Log in as a `manager` sci-fi roster account:
 
 ## Phase 2 — Functional walkthrough (browser checklist, one pass through the whole app)
 
-Use https://he-cells.github.io/hubble-wms/ (or the new-account URL after the pending repo transfer) with sci-fi roster accounts, one role at a time (member → manager → admin → client).
+Use https://surasaknie.github.io/hubble-wms/ with sci-fi roster accounts, one role at a time (member → manager → admin → client).
 
 - [ ] **Calendar/Timesheet**: month renders with holidays; add/edit/delete a time entry; submit for approval; WFH toggle; flex swap request; admin/manager sees all team entries, member sees own only
 - [ ] **Leave**: request leave; balance cards correct; 2-tier flow (pending → manager_approved → HR approves → approved); Team Leave scoped by role; Flex Swaps request/approve/reject; Holidays calendar+list view, admin CRUD; Balance tab Initialize Year + edit allocations (admin)
@@ -258,6 +332,7 @@ Use https://he-cells.github.io/hubble-wms/ (or the new-account URL after the pen
 - [ ] **Clients & Documents**: admin adds client, manages logins, provisions client login; upload a document template, merge with employee data, preview; Reports (project stats, tag usage) admin/manager only
 - [ ] **Admin Logs**: entries appear for leave/expense approve-reject, client provision, employee edit; entity/actor/date filters work; pagination kicks in past 20 rows
 - [ ] **Client Portal** (separate client login): own company/project shown; hours-by-project chart renders; expenses/travel table scoped to own rows; text export contains only own data; zero employee names visible anywhere
+- [ ] **Part Numbers** (2H): admin/manager mints `CCC-PPP-CAT-SEQ` on a real project (clear error if project/client `code` missing); member can mint but Categories/Lists/Customer-PN managers are hidden/denied; client `#part-numbers` shows no data; category picker = 11 governed codes + "covers"/decision-ladder help; attribute dropdowns default **TBD**, Lists modal opens; client filter narrows the project picker; revision bump writes history + ⓘ→Compare diffs two revisions; deep link `#part-numbers?project=<id>` preselects; duplicate customer PN rejected without burning a seq; delete → next mint doesn't reuse the number; Clients `code` + Projects `code` inputs save with uniqueness enforced
 
 ---
 

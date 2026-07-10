@@ -214,7 +214,14 @@ $mustZeroTables = @(
   'deletion_requests',
   'travel_claims',
   'project_assignments',
-  'groups'
+  'groups',
+  # Round 59 (A3.5) Part Numbers additions — client must see 0 pn rows (client_block_*)
+  'pn_items',
+  'pn_item_revisions',
+  'pn_attributes',
+  'pn_type_codes',
+  'pn_project_config',
+  'pn_counters'
 )
 foreach ($table in $mustZeroTables) {
   Check-MustZero $table $table
@@ -275,6 +282,14 @@ Check-WriteDenied 'leave_requests' 'leave_requests' @{
   leave_type_code = 'annual'
   start_date = '2020-01-01'
   end_date = '2020-01-01'
+}
+# A3.5 — direct INSERT into pn_items must be blocked (no INSERT policy; minting is RPC-only)
+Check-WriteDenied 'pn_items' 'pn_items' @{
+  project_id = '00000000-0000-0000-0000-000000000000'
+  cat_code = 'PRT'
+  seq = 1
+  part_number = 'PROBE-XXX-PRT-999'
+  name = 'probe'
 }
 
 Write-Host ""

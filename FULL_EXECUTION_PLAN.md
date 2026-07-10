@@ -68,7 +68,7 @@ A2 must precede A4 (the auditor needs corrected targets/URLs); A3 should precede
 
 ## A2 · Doc-accuracy corrections (2026-07-09 review findings)
 
-**Status:** 🔴 open · **Owner:** 🤖 · **Effort:** S–M (docs only, no cache bump) · **Depends:** nothing · **Blocks:** A4
+**Status:** ✅ **DONE 2026-07-10 (R60)** — all 11 corrections applied; grep-clean (no `he-cells.github.io` outside the deliberate CORS negative-control, no `22/22` target). · **Owner:** 🤖 · **Effort:** S–M (docs only, no cache bump) · **Depends:** nothing · **Blocks:** A4
 
 **Why:** the audit plan/packet froze at 2026-07-01; three ship events since (repo transfer R53, Part Numbers R54/55, probe view-check R51) made specific lines wrong. An auditor following the packet literally hits a dead URL and two wrong numeric targets.
 
@@ -92,7 +92,7 @@ A2 must precede A4 (the auditor needs corrected targets/URLs); A3 should precede
 
 ## A3 · Audit coverage extensions (Part Numbers + CORS)
 
-**Status:** 🔴 open · **Owner:** 🤖 (docs + probe scripts; no page JS → no cache bump) · **Effort:** M · **Depends:** A2 (same files) · **Blocks:** A4
+**Status:** ✅ **DONE 2026-07-10 (R60)** — CORS block in packet 1E; pn policy SQL in plan/packet 1F (16 policies, `pn_items` INSERT positive control); new Phase 2H walkthrough in plan + packet Phase 2; P1–P4 pn integrity in plan/packet Phase 3; probe scripts extended (both `.sh` + `.ps1`: +6 `pn_*` `check_zero` + `pn_items` write-denied → **41 checks total**, `bash -n` clean); anon re-baseline note (~56) in packet 1A. · **Owner:** 🤖 (docs + probe scripts; no page JS → no cache bump) · **Effort:** M · **Depends:** A2 (same files) · **Blocks:** A4
 
 **Why:** Part Numbers (R54/55) shipped after the audit plan was written — the audit currently never tests it. And Phase 1E sends no `Origin` header, so it cannot catch the exact CORS failure that already took down login once (R53).
 
@@ -349,8 +349,8 @@ Recommendation standing since 2026-06-12: **Supabase Pro first** ($25/mo — man
 | When | Who | What |
 |---|---|---|
 | ✅ Done 2026-07-09 | 🧑 | **A0 + A1** — all three Studio migrations applied + verified (client probe 34/34; 3 lint VERIFY queries 0 rows) |
-| **Now** | 🤖 | **A2 + A3** — all audit-doc fixes + audit coverage extensions (CORS regression block, Part Numbers policy/walkthrough/integrity, probe pn checks) in one push |
-| After A2/A3 | 🧑/🌐 | **A4** — run the execution packet against prod |
+| ✅ Done 2026-07-10 | 🤖 | **A2 + A3** — all audit-doc fixes + audit coverage extensions (CORS regression block, Part Numbers policy/walkthrough/integrity, probe pn checks → 41) in one push |
+| **Now** | 🧑/🌐 | **A4** — run the execution packet against prod (targets now current) |
 | Parallel any time | 🤖 | **A5** Help page rebuild (needs cache bump — next is v=123) · **A6.1** template drafts if wanted |
 | Then | 🧑 | **A7** team review → **A8** roster swap (3 confirms) → **GO-LIVE** |
 | At go-live | 🤖+🧑 | **B2** Sheets daily export (needs Sheet URL) · **B4** toggles |
