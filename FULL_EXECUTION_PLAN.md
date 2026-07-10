@@ -199,7 +199,7 @@ The anon script is local/gitignored, so document what to add: 6 `pn_*` tables + 
 
 ## A5 · Refresh the Help page (user + admin manual)
 
-**Status:** 🔴 open — gate added 2026-07-09 · **Owner:** 🤖 build, 🧑 spot-check in prod · **Effort:** M · **Depends:** nothing · **Blocks:** A7
+**Status:** ✅ **DONE 2026-07-10 (R60 cont.)** — bilingual content added for Part Numbers, 2-tier leave, Client Portal, Manage-client-logins, Part Numbers governance, and a new Admin Logs section (Account Status tab was already covered pre-existing). Cache **JS v=122→v=123**. `npm run check:parse` 56/56. **🟡 Still needed: 🧑 in-browser spot-check in prod** (this container can't render/view the page). · **Owner:** 🤖 build, 🧑 spot-check in prod · **Effort:** M · **Depends:** nothing · **Blocks:** A7
 
 **Why:** `js/pages/help.js` is frozen at Round 42 — grep confirms **zero** mentions of the Client Portal, Admin Logs, Account Status tab, or Part Numbers. Reviewers will read this as the manual; it must describe the app they're reviewing.
 
@@ -351,7 +351,8 @@ Recommendation standing since 2026-06-12: **Supabase Pro first** ($25/mo — man
 | ✅ Done 2026-07-09 | 🧑 | **A0 + A1** — all three Studio migrations applied + verified (client probe 34/34; 3 lint VERIFY queries 0 rows) |
 | ✅ Done 2026-07-10 | 🤖 | **A2 + A3** — all audit-doc fixes + audit coverage extensions (CORS regression block, Part Numbers policy/walkthrough/integrity, probe pn checks → 41) in one push |
 | **Now** | 🧑/🌐 | **A4** — run the execution packet against prod (targets now current) |
-| Parallel any time | 🤖 | **A5** Help page rebuild (needs cache bump — next is v=123) · **A6.1** template drafts if wanted |
+| ✅ Done 2026-07-10 | 🤖 | **A5** Help page rebuild (JS v=122→v=123) — 🧑 in-browser spot-check still pending |
+| Parallel any time | 🤖 | **A6.1** template drafts if wanted |
 | Then | 🧑 | **A7** team review → **A8** roster swap (3 confirms) → **GO-LIVE** |
 | At go-live | 🤖+🧑 | **B2** Sheets daily export (needs Sheet URL) · **B4** toggles |
 | First post-launch build | 🤖 | **B1** M1 Central Hub (planning session first — settle D1–D5) |
