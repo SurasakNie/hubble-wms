@@ -175,6 +175,17 @@ export async function getManagerProjects(managerId) {
   return data || [];
 }
 
+// Managers assigned to a given project (inverse of getManagerProjects).
+// Returns an array of manager user-ids.
+export async function getProjectManagers(projectId) {
+  const { data, error } = await supabase
+    .from('project_assignments')
+    .select('manager_id')
+    .eq('project_id', projectId);
+  if (error) throw error;
+  return (data || []).map(r => r.manager_id);
+}
+
 export async function assignManager(projectId, managerId) {
   const { error } = await supabase
     .from('project_assignments')

@@ -9,18 +9,18 @@ import { supabase } from '../config.js';
 const PROFILE_SELECT_ADMIN = 'id, name, email, job_title, role, billable_rate, currency, client_id, created_at, working_days, daily_capacity_hours, week_start';
 const PROFILE_SELECT_SAFE  = 'id, name, email, job_title, role, created_at';
 
-export async function getUsers(isAdmin = false) {
+export async function getUsers(isAdmin = false, { includeClients = false } = {}) {
   const sel = isAdmin ? PROFILE_SELECT_ADMIN : PROFILE_SELECT_SAFE;
-  const { data, error } = await supabase
-    .from('profiles')
-    .select(sel)
-    // Exclude client-role accounts: clients are external, portal-only (CLIENT-01)
-    // and must never appear in staff surfaces — the Team directory (visible to
-    // members, so this also stops leaking client emails there), the Reports
-    // user list, or the Projects member-assignment picker. RBAC §5 confirms the
-    // Team page is staff-only; clients are managed on the Clients page instead.
-    .neq('role', 'client')
-    .order('name');
+  let q = supabase.from('profiles').select(sel);
+  // Row-level scoping (who each role may see) is enforced server-side by RLS
+  // (20260713_team_visibility_scoping.sql). Here we only choose whether
+  // client-role rows may appear on THIS surface:
+  //   • Team page passes includeClients:true — RLS still limits WHICH clients
+  //     (member: none, manager: only clients on their projects, admin: all).
+  //   • Reports + the Projects member-assignment picker keep the default
+  //     (staff only) so client accounts never pollute those lists.
+  if (!includeClients) q = q.neq('role', 'client');
+  const { data, error } = await q.order('name');
   if (error) throw error;
   return data || [];
 }

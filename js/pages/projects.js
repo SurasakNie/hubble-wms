@@ -5,6 +5,7 @@
 import {
   getProjects, createProject, updateProject, deleteProject, getProjectStats,
   getTasks, createTask, assignTask, unassignTask,
+  getProjectManagers, assignManager, unassignManager,
 } from '../api/projects.js';
 import { getClients } from '../api/clients.js';
 import { getUsers, getGroups } from '../api/users.js';
@@ -24,6 +25,7 @@ let _activeFilter  = 'active';   // active | all | archived
 let _clientFilter  = '';         // client id | ''
 let _accessFilter  = 'all';      // all | public | private
 let _billingFilter = 'all';      // all | billable | non
+let _asManagerIds  = new Set();  // assign-modal: manager user-ids assigned to the open project
 
 // ──────────────────────────────────────────────────────────────
 // ENTRY POINT
@@ -384,14 +386,15 @@ function _openAssignModal(project) {
 }
 
 async function _loadAssign(project) {
-  let tasks = [], users = [], groups = [];
+  let tasks = [], users = [], groups = [], managerIds = [];
   try {
-    [tasks, users, groups] = await Promise.all([
-      getTasks(project.id), getUsers(isAdmin()), getGroups(),
+    [tasks, users, groups, managerIds] = await Promise.all([
+      getTasks(project.id), getUsers(isAdmin()), getGroups(), getProjectManagers(project.id),
     ]);
   } catch (err) {
     window.showToast?.(err.message, 'error');
   }
+  _asManagerIds = new Set(managerIds);
   _renderAssignBody(project, tasks, users.filter(u => u.role !== 'client'), groups);
 }
 
@@ -467,7 +470,26 @@ function _renderAssignBody(project, tasks, users, groups, _memberSearch = '', _g
       <span style="color:var(--text-muted); font-size:var(--font-xs);">Select all</span>
     </label>`;
 
+  // MANAGERS — writes project_assignments (separate from task-based access).
+  // An assigned manager gains visibility of this project's client accounts on
+  // the Team page (is_client_on_my_projects, 20260713). Manager-role only.
+  const managers = users.filter(u => u.role === 'manager');
+  const managerRows = managers.length
+    ? managers.map(u => `
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" class="pr-as-mgr-cb" data-id="${u.id}"${_asManagerIds.has(u.id) ? ' checked' : ''}>
+          <span>${esc(u.name || u.email)}</span>
+        </label>`).join('')
+    : `<div class="text-muted" style="font-size:var(--font-xs)">No managers</div>`;
+
   body.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:6px; border-bottom:1px solid var(--border); padding-bottom:var(--sp-3);">
+      <span class="text-muted" style="font-size:var(--font-xs); text-transform:uppercase; letter-spacing:0.5px;">Managers</span>
+      <span class="text-muted" style="font-size:10px;">Assigned managers can see this project's client accounts on the Team page.</span>
+      <div id="pr-as-manager-list" style="display:flex; flex-direction:column; gap:6px;">
+        ${managerRows}
+      </div>
+    </div>
     <div style="display:flex; flex-direction:column; gap:6px;">
       <span class="text-muted" style="font-size:var(--font-xs); text-transform:uppercase; letter-spacing:0.5px;">${memberLabel}</span>
       ${searchBox('pr-as-member-search', 'Search members…', _memberSearch)}
@@ -576,6 +598,24 @@ function _renderAssignBody(project, tasks, users, groups, _memberSearch = '', _g
       } catch (err) {
         window.showToast?.(err.message, 'error');
         cb.checked = !on;
+        cb.disabled = false;
+      }
+    });
+  });
+
+  // Manager assignment (project_assignments) — independent of task access.
+  body.querySelectorAll('.pr-as-mgr-cb').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      cb.disabled = true;
+      const id = cb.dataset.id, on = cb.checked;
+      try {
+        if (on) { await assignManager(project.id, id);   _asManagerIds.add(id); }
+        else    { await unassignManager(project.id, id); _asManagerIds.delete(id); }
+        window.showToast?.(on ? 'Manager assigned' : 'Manager removed', 'success');
+      } catch (err) {
+        window.showToast?.(err.message, 'error');
+        cb.checked = !on;
+      } finally {
         cb.disabled = false;
       }
     });

@@ -92,7 +92,10 @@ export async function render(profile) {
 
   // Load data in parallel (mirrors tracker.js).
   try {
-    const loads = [getUsers(admin), getGroups()];
+    // includeClients:true — the Team page shows client rows (read-only); RLS
+    // scopes WHICH clients each role sees (member none, manager project-clients,
+    // admin all). See 20260713_team_visibility_scoping.sql.
+    const loads = [getUsers(admin, { includeClients: true }), getGroups()];
     if (admin) loads.push(getPendingNameChangeRequests());
     const [usersResult, groupsResult, ...rest] = await Promise.all(loads);
     _users        = usersResult  || [];
@@ -236,7 +239,12 @@ function _renderMembersTable() {
 
 function _renderMemberRow(u, admin, groups, pendingNameReq = null) {
   const isSelf   = u.id === _profile.id;
-  const ncrChip  = (admin && pendingNameReq)
+  // Client rows are read-only: shown to managers (their project-clients) and
+  // admins (all) per RLS, but never editable here — clients are provisioned/
+  // managed on the Clients page. No rate, no role change, no group controls,
+  // no Edit-Profile click. (Members never see client rows at all — RLS.)
+  const isClient = u.role === 'client';
+  const ncrChip  = (admin && !isClient && pendingNameReq)
     ? ` <span class="badge badge-pending tm-ncr-chip" data-req-id="${attr(pendingNameReq.id)}"
              style="cursor:pointer;font-size:10px;margin-left:4px;vertical-align:middle;"
              title="Review name change request → &quot;${attr(pendingNameReq.requested_name)}&quot;">
@@ -249,8 +257,9 @@ function _renderMemberRow(u, admin, groups, pendingNameReq = null) {
   const email  = u.email ? esc(u.email) : '<span class="text-muted">—</span>';
 
   // BILLABLE RATE — column only present in the API payload for admin/owner.
+  // Never shown for a client row (clients have no staff billable rate).
   let rateCell;
-  if (!admin) {
+  if (!admin || isClient) {
     rateCell = '<span class="text-muted">—</span>';
   } else {
     const rateDisp = (u.billable_rate !== null && u.billable_rate !== undefined)
@@ -262,8 +271,9 @@ function _renderMemberRow(u, admin, groups, pendingNameReq = null) {
   }
 
   // ROLE — inline select for admin (own row disabled), static badge otherwise.
+  // Client rows always render a static badge (role is not editable here).
   let roleCell;
-  if (admin) {
+  if (admin && !isClient) {
     roleCell = `<select class="tm-role-select" data-id="${u.id}" ${isSelf ? 'disabled title="You cannot change your own role"' : ''}
                         style="width:auto; min-width:104px; padding:4px 8px; font-size:var(--font-xs);">
         ${ROLES.map(r => `<option value="${r}"${r === u.role ? ' selected' : ''}>${_cap(r)}</option>`).join('')}
@@ -286,18 +296,21 @@ function _renderMemberRow(u, admin, groups, pendingNameReq = null) {
   }).join('');
 
   const addable = _groups.filter(g => !groups.some(gg => gg.id === g.id));
-  const groupAdd = admin && addable.length
+  // No group controls (or chips) for client rows — clients aren't group members.
+  const groupAdd = (admin && !isClient && addable.length)
     ? `<select class="tm-group-add" data-id="${u.id}"
                style="width:auto; min-width:90px; padding:4px 8px; font-size:var(--font-xs);">
          <option value="">+ Group</option>
          ${addable.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}
        </select>`
-    : (!admin && groups.length === 0 ? '<span class="text-muted">—</span>' : '');
+    : ((isClient || (!admin && groups.length === 0)) ? '<span class="text-muted">—</span>' : '');
 
-  const groupCell = `<div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">${chips}${groupAdd}</div>`;
+  const groupCell = isClient
+    ? '<span class="text-muted">—</span>'
+    : `<div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">${chips}${groupAdd}</div>`;
 
-  // Row is clickable (→ Edit Profile) only for admin (any row) or self.
-  const clickable = admin || isSelf;
+  // Row is clickable (→ Edit Profile) only for admin (any row) or self — never for a client row.
+  const clickable = (admin || isSelf) && !isClient;
 
   return `
     <tr data-id="${u.id}"${clickable ? ' class="tm-row-click" style="cursor:pointer;"' : ''}>

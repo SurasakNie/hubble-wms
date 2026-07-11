@@ -112,7 +112,7 @@ All already wired into `js/config.js` and verified (key returns HTTP 200).
 | Dashboard | all users' data | own + assigned | own data | own client's projects (aggregate) |
 | Reports ✅ | full + export | view + export (assigned) | — | — |
 | Projects | full CRUD + color | add only, delete → request | view only | own client's projects only |
-| Team | full CRUD | — | view only (no rate) | view only (no rate) |
+| Team | full CRUD; sees **all** staff + **all** clients (clients read-only) | sees same-group staff + own **project-clients** (read-only, no rate) | sees **same-group staff only** (no rate, no clients) | — (portal-only, no Team access) |
 | Clients | full CRUD | add only, delete → request | — | — |
 | Tags | full CRUD | apply only | apply only | — |
 

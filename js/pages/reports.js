@@ -184,10 +184,14 @@ async function _populateDropdowns(showAmount) {
         _fUserId = emp?.user_id || '';
       });
     }).catch(err => window.showToast?.(err.message, 'error'));
-    // Rate map (still needs users API for billable_rate)
-    getUsers(true).then(users => {
-      for (const u of users) _rateMap[u.id] = Number(u.billable_rate) || 0;
-    }).catch(err => console.warn('[reports] rate fetch failed', err));
+    // Rate map — ONLY for roles that actually display amounts (admin/owner).
+    // showAmount is isAdmin(); managers never see rates, so don't even fetch
+    // billable_rate into their payload. (Clients excluded by getUsers default.)
+    if (showAmount) {
+      getUsers(true).then(users => {
+        for (const u of users) _rateMap[u.id] = Number(u.billable_rate) || 0;
+      }).catch(err => console.warn('[reports] rate fetch failed', err));
+    }
   }
 
   getClients().then(list => {
