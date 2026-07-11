@@ -215,7 +215,7 @@ $mustZeroTables = @(
   'travel_claims',
   'project_assignments',
   'groups',
-  # Round 60 (A3.5) Part Numbers additions — client must see 0 pn rows (client_block_*)
+  # Round 60 (A3.5) Part Numbers additions - client must see 0 pn rows (client_block_*)
   'pn_items',
   'pn_item_revisions',
   'pn_attributes',
@@ -283,7 +283,7 @@ Check-WriteDenied 'leave_requests' 'leave_requests' @{
   start_date = '2020-01-01'
   end_date = '2020-01-01'
 }
-# A3.5 — direct INSERT into pn_items must be blocked (no INSERT policy; minting is RPC-only)
+# A3.5 - direct INSERT into pn_items must be blocked (no INSERT policy; minting is RPC-only)
 Check-WriteDenied 'pn_items' 'pn_items' @{
   project_id = '00000000-0000-0000-0000-000000000000'
   cat_code = 'PRT'

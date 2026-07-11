@@ -4,19 +4,19 @@ param(
 )
 
 # Anon RLS Probe
-# Verifies that a completely unauthenticated caller (no login at all — just the
+# Verifies that a completely unauthenticated caller (no login at all - just the
 # public anon/publishable key, the same one already shipped in the frontend)
 # cannot read any internal table or execute any privileged RPC.
 #
 # Reconstructed 2026-07-11: the previously-referenced `anon_probe.scratch.ps1`
 # was never actually committed to this repo (always described as "local,
 # gitignored") and its source audit doc (AUDIT_2026-06-11_GOLIVE.md) is also
-# absent from every checkout — that reference had been pointing at nothing for
+# absent from every checkout - that reference had been pointing at nothing for
 # several rounds. This version's table/RPC list is derived directly from
 # `grep -rohE ".from\('[a-z_]+'\)" js/` and `grep -rohE ".rpc\('[a-z_]+'" js/`
 # against the actual app code, plus 4 known schema objects the client never
 # queries directly (pn_counters, login_attempts, pn_item_snapshot,
-# pn_render_template — all server-side-only, but must still deny anon).
+# pn_render_template - all server-side-only, but must still deny anon).
 #
 # Usage:
 #   ./anon_probe.ps1
@@ -81,9 +81,9 @@ function Check-RpcBlocked($fn) {
   try {
     $resp = Invoke-WebRequest -Uri "$SupabaseUrl/rest/v1/rpc/$fn" -Headers $Headers -Method POST -ContentType 'application/json' -Body '{}' -UseBasicParsing -ErrorAction Stop
     $body = if ([string]::IsNullOrWhiteSpace($resp.Content)) { @() } else { @(ConvertFrom-Json $resp.Content) }
-    # A 200 with a real result means anon could execute it — that's a leak
+    # A 200 with a real result means anon could execute it - that's a leak
     # UNLESS the function is genuinely meant to be public (none in this app are).
-    Fail-Check "$fn -> anon call SUCCEEDED (HTTP $([int]$resp.StatusCode)) — should be blocked"
+    Fail-Check "$fn -> anon call SUCCEEDED (HTTP $([int]$resp.StatusCode)) - should be blocked"
   } catch {
     $status = $null
     try { $status = [int]$_.Exception.Response.StatusCode } catch {}
@@ -97,7 +97,7 @@ function Check-RpcBlocked($fn) {
 
 Write-Host ""
 Write-Host "============================================================"
-Write-Host " Anon RLS Probe (no login — public anon key only)"
+Write-Host " Anon RLS Probe (no login - public anon key only)"
 Write-Host " Project: $SupabaseUrl"
 Write-Host "============================================================"
 Write-Host ""
@@ -114,7 +114,7 @@ $tables = @(
   'pn_items','pn_project_config','pn_type_codes','profiles','project_assignments',
   'projects','public_holidays','tags','task_assignments','tasks','time_entries',
   'time_entry_tags','travel_claims','travel_requests','vehicle_rates',
-  # Server-side-only tables — never queried directly by the client, but must
+  # Server-side-only tables - never queried directly by the client, but must
   # still deny anon reads (schema objects confirmed via migrations, not JS grep)
   'pn_counters','login_attempts'
 )
@@ -131,7 +131,7 @@ $rpcs = @(
   'create_cycle_evaluations','get_client_project_summary','get_evaluation_kpis',
   'get_project_stats','get_tag_usage','pn_bump_revision','pn_create_item',
   'review_name_change_request',
-  # Server-side-only — called from inside other RPCs, not directly from JS,
+  # Server-side-only - called from inside other RPCs, not directly from JS,
   # but anon EXECUTE must still be revoked (this is what 20260709 hardening targeted)
   'pn_item_snapshot','pn_render_template'
 )
