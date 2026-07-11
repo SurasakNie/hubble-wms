@@ -239,7 +239,15 @@ CREATE VIEW client_project_totals AS
 
 ## 7. File Structure (actual, as built)
 
-> Reconciled to disk **2026-06-15 (R35)**. `supabase/` is **gitignored** — present locally, not in the public app repo. The full applied-migrations list (49) with status lives in [Timesheet_WMS_Master_Plan.md](Timesheet_WMS_Master_Plan.md) §Applied migrations.
+> Reconciled to disk **2026-07-10 (R60 cont., plan task A6.3)** — re-verified against the actual
+> repo listing, not carried forward (the previous version here was frozen at R35, before
+> `help.js`, `adminLogs.js`, `clientPortal.js`, `partNumbers.js`, `app-init.js`/`login-init.js`, the
+> `holidays-*`/`expenses-*` submodule splits, `auditLog.js`, and `partNumbers.js` (api) existed).
+> `supabase/` is **gitignored** except `supabase/probes/f01_prod_client_probe.ps1` — present locally,
+> not in the public app repo. Newer migration `.sql` files are committed at **repo root** instead (see
+> below); the full historical applied-migrations ledger with status lives in
+> [Timesheet_WMS_Master_Plan.md](Timesheet_WMS_Master_Plan.md) §Applied migrations — treat that table,
+> not a file count here, as authoritative.
 
 ```
 /
@@ -251,42 +259,53 @@ CREATE VIEW client_project_totals AS
 │   ├── calendar.css        ✅ FullCalendar dark-theme overrides
 │   └── charts.css          ✅ Chart.js container sizing
 ├── js/
+│   ├── app-init.js         ✅ app.html's externalized bootstrap (R50, CSP script-src hardening) — holds the `V` cache-version const + wmsRoutes/pages route maps + global Esc-closes-modals handler
+│   ├── login-init.js       ✅ index.html's externalized bootstrap (R50, same CSP reason), versioned independently (`?v=2`)
 │   ├── config.js           ✅ Supabase URL + publishable key
-│   ├── auth.js             ✅ session, role guard, getAuthGate(), getAuthError()
+│   ├── auth.js             ✅ session, role guard, getAuthGate(), getAuthError(), isAdmin/isManager/isClientRole
 │   ├── router.js           ✅ hash-based SPA routing
-│   ├── format.js           ✅ date/time/duration/currency + getISOWeek / toISODate / todayISO
+│   ├── format.js           ✅ date/time/duration/currency + getISOWeek / toISODate / todayISO + shared `esc()` / `sanitizeHtml()`
 │   ├── passwordPolicy.js   ✅ shared password policy + 7-rule strength indicator
-│   ├── pages/  (15)
-│   │   ├── tracker.js      ✅   timesheet.js ✅   calendar.js ✅   dashboard.js ✅   reports.js ✅
-│   │   ├── projects.js     ✅   team.js ✅        clients.js ✅    tags.js ✅
-│   │   ├── employees.js    ✅ Directory + Account Status tab     holidays.js ✅     requests.js ✅ (Notifications)
-│   │   └── expenses.js     ✅   evaluation.js ✅  documents.js ✅
+│   ├── pages/  (29 files, 19 nav routes — 2 pages split into coordinator + submodules)
+│   │   ├── tracker.js  timesheet.js  calendar.js  dashboard.js  reports.js
+│   │   ├── projects.js  team.js  clients.js  tags.js
+│   │   ├── employees.js (Directory + Account Status tab)   requests.js (Notifications)
+│   │   ├── holidays.js + holidays-{state,my-leave,team,approvals,holidays}.js (coordinator + 5 submodules, R43 split — submodule imports are `?v=`-pinned inside `holidays.js`, bump on ANY submodule change)
+│   │   ├── expenses.js + expenses-state.js + expenses-travel.js + expenses-approvals.js + expenses-petty-cash.js + expenses-report.js (coordinator + 5 submodules, R43 split, same `?v=`-pin rule)
+│   │   ├── evaluation.js  documents.js
+│   │   ├── clientPortal.js (CLIENT-01, R39)   adminLogs.js (R45)   partNumbers.js (R54, reworked R55)
+│   │   └── help.js (R42, refreshed R60 — Part Numbers/2-tier leave/Client Portal/Admin Logs added)
 │   ├── components/  (6)
-│   │   ├── entryModal.js   ✅   profileModal.js ✅   prefsModal.js ✅ (General/Format/Security)
-│   │   └── weekNav.js      ✅   empSelect.js ✅      confirmModal.js ✅
-│   └── api/  (12)
-│       ├── timeEntries.js  ✅   projects.js ✅   clients.js ✅   tags.js ✅   users.js ✅
-│       ├── employees.js    ✅   leaves.js ✅     holidays.js ✅  jobTitleRequests.js ✅
-│       └── expenses.js     ✅   evaluations.js ✅   documents.js ✅
-└── supabase/  (gitignored — local only)
-    ├── schema.sql          ✅ applied — do not re-run
-    ├── migrations/         ✅ 49 *.sql (see Master Plan §Applied migrations for the full list + status)
-    ├── functions/          ✅ 6 Edge Functions (Deno service-role):
-    │                          login · provision-users · admin-reset-password ·
-    │                          admin-clear-mfa · account-activation-status · admin-set-account-active
-    ├── seeds/              public_holidays_2026.sql · employees_import.sql
-    ├── probes/             anon_probe.ps1  (anon RLS gate — 43/43 PASS)
-    └── backups/            backup.yml · create_backup_role.sql · db_dump.ps1 · README.md
+│   │   ├── entryModal.js   profileModal.js   prefsModal.js (General/Format/Security)
+│   │   └── weekNav.js      empSelect.js      confirmModal.js (also exports `promptModal`)
+│   └── api/  (14)
+│       ├── timeEntries.js   projects.js   clients.js   tags.js   users.js
+│       ├── employees.js   leaves.js   holidays.js   jobTitleRequests.js
+│       ├── expenses.js   evaluations.js   documents.js
+│       └── auditLog.js (R45)   partNumbers.js (R54/55)
+└── supabase/  (mostly gitignored — local only, except the client probe below)
+    ├── schema.sql          ✅ applied — do not re-run (gitignored, local only)
+    ├── probes/f01_prod_client_probe.ps1  ✅ tracked — client RLS gate, 41 checks (R60, A3.5)
+    ├── functions/          ✅ 7 Edge Functions (Deno service-role, gitignored): login ·
+    │                          provision-users · admin-reset-password · admin-clear-mfa ·
+    │                          account-activation-status · admin-set-account-active · provision-client
+    ├── seeds/ · backups/   gitignored — see Master Plan / backups README
+    └── (root-level, tracked) recent migration `.sql` files — e.g. `20260709_lint_search_path_and_execute_hardening.sql`,
+        `20260710_part_numbers.sql`, `20260711_part_numbers_v2.sql`, `20260712_client_block_expanded.sql`,
+        `20260712b_f05_rpc_search_path.sql`, `f05_request_review_rpcs.sql` — a **partial, recent-only** set;
+        the full historical migration ledger (50+ files across the project) lives in the Master Plan table,
+        not as a complete set of files in this working copy.
 ```
 
-> **Not built yet:** `js/pages/help.js` — bilingual Help page (= the user + admin manual, role-aware); the LAST closeout build item.
-> Repo root also holds the project docs (`*.md`) + 3 reference artifacts: `employee_id_system_v2.html`, `employee_id_schemes_comparison.html`, `UI_NAMING_REFERENCE.html`.
+> Repo root also holds the project docs (`*.md`), the bash client-probe counterpart
+> `f01_prod_client_probe.sh` (tracked at root, mirrors the `.ps1` above), and 3 reference artifacts:
+> `employee_id_system_v2.html`, `employee_id_schemes_comparison.html`, `UI_NAMING_REFERENCE.html`.
 
 **Reconciliation notes:**
-- `js/components/` has **no separate `sidebar.js` / `topbar.js` / `modal.js`** — the sidebar, top bar, and modal shell are realized inline within `app.html` / `router.js`. The shared modal/widget modules that DO exist: `entryModal`, `profileModal`, `prefsModal`, `confirmModal`, `weekNav`, `empSelect`.
-- `js/api/` has **no `tasks.js`** (tasks handled within projects/entries helpers); `requests.js` powers the Notifications page (deletion + profile-change + job-title + leave-request queues).
+- `js/components/` has **no separate `sidebar.js` / `topbar.js` / `modal.js`** — the sidebar, top bar, and modal shell are realized inline within `app.html` / `router.js`. The shared modal/widget modules that DO exist: `entryModal`, `profileModal`, `prefsModal`, `confirmModal` (+ `promptModal` export), `weekNav`, `empSelect`.
+- `js/api/` has **no `tasks.js`** (tasks handled within projects/entries helpers); `requests.js` (pages) powers the Notifications page (deletion + profile-change + job-title + leave-request queues) — there is no matching `api/requests.js`, those calls live in `api/jobTitleRequests.js` and inline in the page.
 - **`supabase/functions/`** is the login overhaul's service-role home — all admin-guarded (`login` deployed `--no-verify-jwt`). Not in the public app repo.
-- The `projects_select` RLS hotfix was applied directly to the DB; its `.sql` file is not on disk.
+- Shared `api`/`components` imports are deliberately **not** `?v=`-pinned (only the page-level `V` constant in `app-init.js` is) — see CLAUDE.md Cache Versioning.
 
 ---
 
@@ -435,30 +454,51 @@ Two-line profile widget pinned to the bottom of the sidebar. Layout:
 
 ---
 
-## 10. Sidebar Navigation ✅ (branded "TIMESHEET")
+## 10. Sidebar Navigation ✅ (branded "TIMESHEET") — re-synced 2026-07-10 (R60 cont., plan task A6.3)
 
-> Original nav spec: [`UI UX Specification.md §2`](UI%20UX%20Specification.md).
+> Original nav spec: [`UI UX Specification.md §2`](UI%20UX%20Specification.md). Source of truth for
+> this section is `app.html`'s sidebar markup — re-verified against it directly, not carried forward
+> from an earlier round (the previous version here predated Employees/Holidays/Expenses/Evaluation/
+> Documents/Notifications/Admin Logs/Part Numbers/Help/Client Portal entirely).
 
 ```
 TIMESHEET                       ← brand header
   ⏱  Time Tracker
   📊  Timesheet
   📅  Calendar
+  🏢  My Portal                 ← client role ONLY (#client-portal, CLIENT-01)
 ANALYZE
   ▦   Dashboard
-  📈  Reports                   ← ✅ done
+  📈  Reports
 MANAGE
   📄  Projects
-  👥  Team
+  👥  Teams
   👤  Clients
   🏷  Tags
-  ▾  SHOW MORE
+  ▾  SHOW MORE                  ← reveals the WMS section below
+WMS  (behind SHOW MORE, role-filtered)
+  🧑‍💼 Employees
+  🌴  Leave & Holidays
+  🧾  Expense & Travel
+  ✅  Evaluation
+  📁  Documents
+  🔔  Notifications              ← route is #requests; visible label is "Notifications"
+  📜  Admin Logs                 ← admin ONLY, hidden for everyone else
+  #️⃣  Part Numbers
+  ❓  Help
 ─────────────────────────────
 [SN]  Firstname               ← bold
       Hubble Engineering  ∨   ← muted, 2nd line; click → dropdown ↑
 ```
-Nav items are role-filtered at render (verified: full sidebar shows for owner).
+Nav items are role-filtered at render (verified: full sidebar shows for owner). `My Portal` and
+`Admin Logs` are the two entries hidden by default in markup (`style="display:none"`) and toggled
+on per-role in `app-init.js`, rather than filtered by the general WMS role matrix.
 Profile row is global (all roles); company line shows client name for `client` role.
+
+**19 nav-routable pages** total: `#tracker` `#timesheet` `#calendar` `#client-portal` `#dashboard`
+`#reports` `#projects` `#team` `#clients` `#tags` `#employees` `#holidays` `#expenses` `#evaluation`
+`#documents` `#requests` `#admin-logs` `#part-numbers` `#help` (verified against `app.html`'s
+sidebar markup + the `wmsRoutes`/`pages` maps in `app-init.js`).
 
 ---
 

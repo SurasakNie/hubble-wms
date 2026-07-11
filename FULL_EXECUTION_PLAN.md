@@ -216,13 +216,13 @@ The anon script is local/gitignored, so document what to add: 6 `pn_*` tables + 
 
 ## A6 · Closeout content (decisions + wording)
 
-**Status:** 🔴 open · **Owner:** 🧑 decides, 🤖 wires · **Effort:** M (mostly 🧑 writing time) · **Depends:** nothing · **Blocks:** A7 (ideally — reviewers should see real template wording)
+**Status:** 🟡 partial — **A6.3 done** (R60 cont., 2026-07-10); **A6.1 + A6.2 still open, blocked on 🧑 decisions** · **Owner:** 🧑 decides, 🤖 wires · **Effort:** M (mostly 🧑 writing time) · **Depends:** nothing · **Blocks:** A7 (ideally — reviewers should see real template wording)
 
 1. **Template wording** — all 9 document templates are workflow placeholders. 🧑 supplies final HE wording (EN or EN+TH per template) → paste via the in-app TEMPLATES editor (no code, no migration). Option: 🤖 drafts all 9 for 🧑 to edit — say the word.
 2. **Leave pro-rating + Dec-31 reset decision** — record the policy (carry-over? encashment? pro-rate mid-year joiners?). Currently the system defaults to 0 carry-over and has a noted-but-unbuilt Dec-31 reset plan. Decision gets recorded in `HE_WMS_Specification.md` §5; any automation becomes a B-track task.
-3. **Structure-doc re-sync** — timesheet plan §7 + Spec §14 nav tree to final as-built state (15 pages incl. `#part-numbers`, `#admin-logs`, `#help`).
+3. **Structure-doc re-sync** — ✅ **done.** `HE_interactive_timesheet_plan.md` §7 (File Structure) and §10 (Sidebar Navigation), plus `HE_WMS_Specification.md` §14 (Nav Map), all re-verified directly against `app.html`'s sidebar markup and the real `js/pages`/`js/api`/`js/components` listings — not carried forward from earlier rounds. All three now show the full 19-route nav (Client Portal, Admin Logs, Part Numbers, Help included) and the current file inventory (`app-init.js`/`login-init.js`, `holidays-*`/`expenses-*` submodule splits, `auditLog.js`, `partNumbers.js`).
 
-**Acceptance:** no template renders placeholder text; leave policy decision written down; nav trees match `app.html`.
+**Acceptance:** no template renders placeholder text (🔴 still open); leave policy decision written down (🔴 still open); nav trees match `app.html` (✅ met).
 
 ---
 

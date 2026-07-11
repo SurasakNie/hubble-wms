@@ -805,13 +805,22 @@ These items are unresolved and will block detailed design or implementation if n
 
 This appendix shows how the WMS modules map to the app navigation. The current TIMESHEET app has the first three sections built; the "SHOW MORE" section contains the WMS expansion pages as they are built.
 
+> **Re-synced 2026-07-10 (R60 cont., plan task A6.3)** against `app.html`'s actual sidebar markup —
+> the previous version of this tree predated **Client Portal, Admin Logs, and Part Numbers**
+> entirely (all three shipped R39–R55). The stale "Applicants" placeholder line is removed below —
+> it was never built and has no route in the app.
+
 ```
 TIMESHEET App Navigation
 │
 ├── Main Section (✅ built)
 │   ├── Time Tracker
 │   ├── Timesheet
-│   └── Calendar
+│   ├── Calendar
+│   └── My Portal               → CLIENT-01 ✅ built — client role ONLY (#client-portal)
+│       ├── Own company + project summary hours (aggregated, not raw time entries)
+│       ├── Expenses & travel table, employee identity masked
+│       └── Text export of own data only
 │
 ├── Analyze Section (✅ built)
 │   ├── Dashboard
@@ -823,7 +832,7 @@ TIMESHEET App Navigation
 │   ├── Clients
 │   └── Tags
 │
-└── SHOW MORE (WMS expansion)
+└── SHOW MORE (WMS expansion — role-filtered)
     ├── Employees                  → Module M3 (Employee DB) ✅ built
     │   ├── Directory (admin) — employee DB: ID system (see employee_id_system_v2.html), manual create, required docs, contacts, link account
     │   └── Account Status (admin) — activation dashboard; provision / reset pw / clear 2FA / deactivate (R34–R35)
@@ -833,7 +842,7 @@ TIMESHEET App Navigation
     │   ├── TEAM LEAVE (admin/mgr) — Team Leave · Team Flex · Approvals · Team Balance
     │   └── POLICY — read-only entitlements doc
     │       (full day / half day; flex = swap with any weekday, or WFH)
-    ├── Notifications              → requests.js ✅ built
+    ├── Notifications              → requests.js ✅ built (sidebar label; route is #requests)
     │   └── own leave requests + 3-day cards; admin: deletion / name-change / job-title queues
     ├── Expense & Travel           → Module M4 (Expense & Travel) ✅ built
     │   ├── MY EXPENSES — submit petty-cash expense (out), project-tagged
@@ -844,16 +853,28 @@ TIMESHEET App Navigation
     ├── Employee Evaluation        → Module M5 (Evaluation) ✅ built
     │   ├── Self-assessment survey
     │   └── Evaluation by team manager
-    ├── Applicants                 → Future (pre-hire pipeline — not yet in WMS spec)
-    └── Automated Documentation    → Module M6 (Auto-Doc) ✅ built & live
-        ├── MY DOCUMENTS — own issued document cards + Print / Save PDF
-        ├── TEAM DOCUMENTS — admin/manager team drafts + generated document cards
-        ├── REQUESTS — submit / cancel document requests (all roles); admin/mgr Fulfill or Reject (R21)
-        ├── GENERATE — employee picker + template cards + preview + Save Draft
-        └── TEMPLATES — admin template editor
+    ├── Automated Documentation    → Module M6 (Auto-Doc) ✅ built & live
+    │   ├── MY DOCUMENTS — own issued document cards + Print / Save PDF
+    │   ├── TEAM DOCUMENTS — admin/manager team drafts + generated document cards
+    │   ├── REQUESTS — submit / cancel document requests (all roles); admin/mgr Fulfill or Reject (R21)
+    │   ├── GENERATE — employee picker + template cards + preview + Save Draft
+    │   └── TEMPLATES — admin template editor
+    ├── Admin Logs                 → ✅ built (R45) — admin ONLY, hidden for everyone else
+    │   └── Audit trail of approve/reject/provision/edit actions; entity/actor/date filters; paginates past 20 rows
+    ├── Part Numbers                → ✅ built (R54, reworked R55) — member mints, admin/manager governs
+    │   ├── Format `CCC-PPP-CAT-SEQ` (company code · project code · 3-letter governed category · sequence)
+    │   ├── Category picker (11 governed codes + decision-ladder help); 5 attribute dropdowns (material/finish/vendor/fab_process/color)
+    │   ├── Revision bump + history; ⓘ info modal → Compare diffs two revisions
+    │   └── Categories / Lists / Customer-PN managers (admin/manager only); client role sees no data
+    └── Help                        → ✅ built (R42, refreshed R60) — bilingual (EN/TH) User Guide + Admin Guide
 ```
 
 > **Login** is a separate entry point (not in the sidebar nav). See §3 for the full admin-seeded login flow specification.
+
+**19 nav-routable pages** in total (verified against `app.html`'s sidebar markup): `#tracker`
+`#timesheet` `#calendar` `#client-portal` `#dashboard` `#reports` `#projects` `#team` `#clients`
+`#tags` `#employees` `#holidays` `#expenses` `#evaluation` `#documents` `#requests` `#admin-logs`
+`#part-numbers` `#help`.
 
 ---
 
