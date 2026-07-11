@@ -9,14 +9,16 @@ It has five phases. Each phase has a clear pass/fail gate.
 ## Phase 1 — Security re-audit (database + Edge Functions)
 
 ### 1A · Anon probe (re-run against prod)
-Re-run the anon probe (equiv. `anon_probe.scratch.ps1`) against prod after all
-migrations through `20260712b` are applied. **Re-baseline the target on first run** —
-the old **45/45** bar predates several ship events: it does not cover the `audit_log`
-table (R45), the 6 `pn_*` tables (R54/55), or the 4 `pn_*` RPCs (R54/55). Add those
-per **A3.6** (6 `pn_*` tables + `audit_log` → anon SELECT denied/0 rows; 4 pn RPCs
-`pn_create_item`/`pn_bump_revision`/`pn_item_snapshot`/`pn_render_template` → 401/
-permission error, grants stripped in `20260711` + A1). **New target ≈ 56/56 — record
-the exact printed total on the first re-baseline run.**
+⚠️ **The previously-referenced `anon_probe.scratch.ps1` never actually existed in
+this repo** — confirmed 2026-07-11 after the user hit a "command not found" trying
+to run it. Neither the script nor its source doc (`AUDIT_2026-06-11_GOLIVE.md`) turn
+up in any checkout; that reference had been pointing at nothing for several rounds.
+**Replaced with a real, repo-tracked script: `anon_probe.ps1`** (repo root), whose
+table/RPC list is derived directly from the app's own `.from()`/`.rpc()` calls
+(`grep -rohE ".from\('[a-z_]+'\)" js/` / `.rpc\('[a-z_]+'`), not reconstructed from
+memory. Run `./anon_probe.ps1` against prod after all migrations through `20260712b`
+are applied. **Target: 61/61 PASS** (47 tables + 1 dropped-view check + 13 RPCs — a
+real derived total, not the old "~56" placeholder guess).
 
 Checks: no table is readable without auth, no RPC leaks to anon, auth
 endpoints return 401 for bad creds.
@@ -355,7 +357,7 @@ Dashboard toggle (L-PWLEAK).
 
 | Phase | Gate |
 |-------|------|
-| 1A anon probe | 0 FAIL — re-baseline (~56, was 45/45; now covers `audit_log` + 6 `pn_*` tables + 4 pn RPCs) |
+| 1A anon probe | 61/61 PASS via `anon_probe.ps1` (real script, replaces the never-existent `anon_probe.scratch.ps1`) |
 | 1B–1C role probes | 0 issues found |
 | 1D client probe | 0 FAIL (41 checks: 34 R59 baseline + 7 Part Numbers; run as a real `role='client'` login) |
 | 1E–1H policy/RPC checks | All policies present (incl. 16 pn + CORS regression: 7 fns echo new origin, none echo old); F-05 RPCs in prod ✅ verified 2026-06-30 (3 rows) — regression re-check only |

@@ -177,7 +177,14 @@ check_write_denied "pn_items" "pn_items" \
 New target ≈ **30 checks** — update plan 1D / packet 1D / pass criteria with the exact printed total.
 
 ### A3.6 · Anon-probe re-baseline note → packet Phase 1A
-The anon script is local/gitignored, so document what to add: 6 `pn_*` tables + `audit_log` (anon SELECT → 0 rows/denied) and 4 pn RPC calls (`pn_create_item`, `pn_bump_revision`, `pn_item_snapshot`, `pn_render_template` → 401/permission error for anon; grants stripped in `20260711` + A1). New target ≈ **56/56**; re-baseline on first run and record the number.
+**Superseded 2026-07-11:** the anon script this task assumed existed ("local,
+gitignored") was never actually anywhere — user hit "command not found" trying to
+run it, and its source doc doesn't exist in any checkout either. Rather than just
+documenting what a hypothetical script should add, wrote a real, repo-tracked
+`anon_probe.ps1` (repo root) with its table/RPC list derived directly from the app's
+own `.from()`/`.rpc()` calls. Real target: **61/61 PASS** (47 tables + 1 dropped-view
+check + 13 RPCs) — supersedes the old "~56" placeholder guess, which was never
+grounded in an actual derived count.
 
 **Acceptance (A3):** packet contains all snippets above; probe scripts parse (`bash -n`); targets consistent across plan/packet/pass-criteria.
 

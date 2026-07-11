@@ -19,26 +19,28 @@ sections), then report pass/fail back so the results can be folded into
 
 ## Phase 1A — Anon probe
 
-Re-run the anon probe script (kept locally, gitignored — not in this repo checkout).
-If you don't have it handy, it re-checks the R23 baseline tables + RPCs
-(`AUDIT_2026-06-11_GOLIVE.md`) with no auth token, expecting every one to
-be denied/empty.
+⚠️ **`anon_probe.scratch.ps1` never actually existed in this repo or anywhere else
+reachable** — it had been referenced as "kept locally, gitignored" for several
+rounds, but neither the script nor its source doc (`AUDIT_2026-06-11_GOLIVE.md`)
+turned up in any checkout when actually searched (2026-07-11). That reference was
+pointing at nothing.
 
+**Replaced with a real, repo-tracked script: `anon_probe.ps1`** (repo root). Its
+table/RPC list is derived directly from `grep -rohE ".from\('[a-z_]+'\)" js/` and
+`grep -rohE ".rpc\('[a-z_]+'" js/` against the actual app code — not reconstructed
+from memory — plus 4 known schema objects the client never queries directly
+(`pn_counters`, `login_attempts`, `pn_item_snapshot`, `pn_render_template` —
+server-side-only, but still must deny anon per the A1 hardening migration).
+
+```powershell
+./anon_probe.ps1
 ```
-./anon_probe.scratch.ps1   # or whatever your local copy is named
-```
 
-**Re-baseline the target** — the old **45/45** bar predates `audit_log` (R45), the
-6 `pn_*` tables and 4 `pn_*` RPCs (R54/55). Before re-running, extend the local
-script to add:
-- 6 `pn_*` tables — `pn_attributes`, `pn_project_config`, `pn_counters`, `pn_items`,
-  `pn_item_revisions`, `pn_type_codes` — anon SELECT → 0 rows/denied.
-- `audit_log` — anon SELECT → 0 rows/denied.
-- 4 pn RPCs — `pn_create_item`, `pn_bump_revision`, `pn_item_snapshot`,
-  `pn_render_template` — anon POST → 401/permission error (grants stripped in
-  `20260711` + A1).
-
-**New target ≈ 56/56** — record the exact printed total on the first re-baseline run.
+**Target: 61/61 PASS** (47 tables + 1 dropped-view regression check + 13 RPCs) —
+this is a real, derived total, not the old placeholder guess of "~56". If it prints
+a different total, the table/RPC list has drifted from the app's actual `.from()`/
+`.rpc()` calls since 2026-07-11 — re-derive with the two `grep` commands above
+before trusting a stale count.
 
 ---
 
