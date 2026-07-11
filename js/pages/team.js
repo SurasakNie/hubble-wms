@@ -14,7 +14,11 @@ import { isAdmin }          from '../auth.js';
 import { formatAmount, esc, attr } from '../format.js';
 import { supabase }         from '../config.js';
 
-const ROLES = ['owner', 'admin', 'manager', 'member', 'client'];
+// 'client' is intentionally omitted: client accounts are portal-only (CLIENT-01),
+// never listed on this page, and staff must not be convertible to a client from
+// the inline role dropdown (clients are provisioned via the Clients page with a
+// linked client_id). This drives both the role filter and the inline role select.
+const ROLES = ['owner', 'admin', 'manager', 'member'];
 
 let _profile      = null;
 let _users        = [];

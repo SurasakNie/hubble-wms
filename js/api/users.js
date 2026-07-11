@@ -14,6 +14,12 @@ export async function getUsers(isAdmin = false) {
   const { data, error } = await supabase
     .from('profiles')
     .select(sel)
+    // Exclude client-role accounts: clients are external, portal-only (CLIENT-01)
+    // and must never appear in staff surfaces — the Team directory (visible to
+    // members, so this also stops leaking client emails there), the Reports
+    // user list, or the Projects member-assignment picker. RBAC §5 confirms the
+    // Team page is staff-only; clients are managed on the Clients page instead.
+    .neq('role', 'client')
     .order('name');
   if (error) throw error;
   return data || [];
