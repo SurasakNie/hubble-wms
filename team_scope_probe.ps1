@@ -1,5 +1,5 @@
 param(
-  # Employee ID (e.g. 02-3-003-56) OR email — same identifier the login screen takes.
+  # Employee ID (e.g. 02-3-003-56) OR email - same identifier the login screen takes.
   [Parameter(Mandatory = $true)][string]$Identifier,
   [Parameter(Mandatory = $true)][string]$Password,
   [string]$SupabaseUrl = 'https://sjkggguedgtynktymzes.supabase.co',
