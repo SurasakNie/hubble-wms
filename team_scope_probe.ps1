@@ -1,20 +1,20 @@
 param(
-  [Parameter(Mandatory = $true)][string]$Email,
+  # Employee ID (e.g. 02-3-003-56) OR email — same identifier the login screen takes.
+  [Parameter(Mandatory = $true)][string]$Identifier,
   [Parameter(Mandatory = $true)][string]$Password,
   [string]$SupabaseUrl = 'https://sjkggguedgtynktymzes.supabase.co',
   [string]$AnonKey = 'sb_publishable_ZO6nGx_2VNMO9dK_fN72Cg_LlprwmWQ'
 )
 
 # Team-visibility scope probe (20260713_team_visibility_scoping.sql).
-# Logs in as a MEMBER or MANAGER (Supabase email+password) and checks that the
-# scoped profiles SELECT policy returns only what that role should see:
-#   member  -> some subset, and ZERO client-role rows (hard fail if any)
+# Logs in as a MEMBER or MANAGER via the app's login Edge Function (so an
+# Employee ID works, not just an email) and checks the scoped profiles policy:
+#   member  -> a subset of staff, and ZERO client-role rows (hard fail if any)
 #   manager -> subset + possibly some client rows (its project-clients; reported)
-# It reports the row count + role breakdown; the "only same group" part is
-# eyeballed against the group roster (the probe can't know your groups).
+# "Only same group" is eyeballed against the roster (the probe can't know groups).
 #
 # ASCII only (Windows PowerShell 5.1 reads .ps1 as ANSI).
-# Usage: ./team_scope_probe.ps1 -Email you@x -Password 'pw'
+# Usage: ./team_scope_probe.ps1 -Identifier '02-3-003-56' -Password 'pw'
 
 $script:Pass = 0; $script:Fail = 0; $script:Warn = 0
 function Pass-Check($m) { Write-Host "  PASS  $m" -ForegroundColor Green; $script:Pass++ }
@@ -25,18 +25,26 @@ Write-Host ""
 Write-Host "============================================================"
 Write-Host " Team-visibility scope probe"
 Write-Host "============================================================"
-Write-Host "Authenticating as: $Email"
+Write-Host "Logging in as: $Identifier"
 
+# Authenticate through the app's login Edge Function (accepts Employee ID or email).
 try {
-  $auth = Invoke-RestMethod -Uri "$SupabaseUrl/auth/v1/token?grant_type=password" -Method POST -Headers @{
-    apikey = $AnonKey; 'Content-Type' = 'application/json'
-  } -Body (@{ email = $Email; password = $Password } | ConvertTo-Json)
+  $login = Invoke-RestMethod -Uri "$SupabaseUrl/functions/v1/login" -Method POST `
+    -Headers @{ 'Content-Type' = 'application/json' } `
+    -Body (@{ identifier = $Identifier; password = $Password } | ConvertTo-Json)
 } catch {
-  Write-Host "AUTH FAILED: $($_.Exception.Message)" -ForegroundColor Red; exit 2
+  Write-Host "LOGIN FAILED: $($_.Exception.Message)" -ForegroundColor Red; exit 2
 }
-$tok = $auth.access_token
-$uid = $auth.user.id
+$tok = $login.session.access_token
+if (-not $tok) { Write-Host "LOGIN returned no session (bad credentials?)" -ForegroundColor Red; exit 2 }
+
 $H = @{ apikey = $AnonKey; Authorization = "Bearer $tok" }
+
+# Resolve the caller's user id from the token.
+try {
+  $who = Invoke-RestMethod -Uri "$SupabaseUrl/auth/v1/user" -Headers $H -Method GET
+  $uid = $who.id
+} catch { Write-Host "Could not resolve user id: $($_.Exception.Message)" -ForegroundColor Red; exit 2 }
 Write-Host "Auth OK -- user_id: $uid" -ForegroundColor Green
 
 function Get-Json($path) {
