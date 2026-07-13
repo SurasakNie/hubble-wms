@@ -1,0 +1,34 @@
+-- 20260713b_fix_project_assignments_trigger.sql
+-- Fix: project_assignments has always been unwritable (pre-existing bug,
+-- unrelated to 20260713_team_visibility_scoping.sql, surfaced by it).
+--
+-- WHY: trg_project_assignment_role (BEFORE INSERT/UPDATE on project_assignments)
+-- calls check_assignment_role(), a function written exclusively for
+-- task_assignments' shape (checks NEW.assignee_type / NEW.assignee_id --
+-- see its own error text: 'task_assignments: user assignee must not be a
+-- client...'). project_assignments has no assignee_type/assignee_id column at
+-- all (only project_id, manager_id), so ANY insert or update on
+-- project_assignments has always thrown:
+--   ERROR: record "new" has no field "assignee_type"
+-- This table was dormant/never written to by the app until this round's new
+-- "Managers" assignment UI (js/pages/projects.js), which is what surfaced it.
+--
+-- FIX: drop the trigger from project_assignments only. task_assignments' own
+-- trigger (trg_task_assignment_role, same function) is untouched and keeps
+-- working correctly -- this migration does not modify check_assignment_role()
+-- itself. Role correctness on project_assignments is already fully enforced
+-- by the existing pa_insert RLS policy:
+--   is_admin() OR (manager_id = auth.uid() AND get_my_role() = 'manager')
+-- so no replacement trigger/check is needed.
+--
+-- No BEGIN/COMMIT wrapper (R54/55 lesson -- wrapped files silently run only a
+-- fragment in the Supabase SQL Editor). Single statement, safe to re-run
+-- (IF EXISTS).
+
+DROP TRIGGER IF EXISTS trg_project_assignment_role ON public.project_assignments;
+
+-- VERIFY (run after):
+--   SELECT event_object_table, trigger_name FROM information_schema.triggers
+--   WHERE action_statement ILIKE '%check_assignment_role%';
+--   -- Expect only 1 row now: task_assignments / trg_task_assignment_role.
+--   -- project_assignments should no longer appear.
