@@ -222,9 +222,13 @@ grounded in an actual derived count.
 
 ## A7 · Team review
 
-**Status:** ⏸ waiting on A4/A5 · **Owner:** 🧑 + team · **Effort:** external *(closeout content — template wording + leave-policy decision — moved to Track B **B10**, 2026-07-13; it no longer gates this review)*
+**Status:** ⏸ waiting on A4/A5 · **Owner:** 🧑 + team (incl. **CEO**) · **Effort:** external *(closeout content — template wording + leave-policy decision — moved to Track B **B10**, 2026-07-13; it no longer gates this review)*
 
-Functional + UX feedback pass by the team on the live sci-fi-roster app. Findings triage: 🤖 fixes code-fixable items (cache bumps per CLAUDE.md), decisions logged in PENDING_TASKS. Exit = team sign-off.
+**Agenda — two parts (part 2 added 2026-07-13):**
+1. **Functional + UX feedback** on the live sci-fi-roster app. Findings triage: 🤖 fixes code-fixable items (cache bumps per CLAUDE.md), decisions logged in PENDING_TASKS.
+2. **Track B roadmap review — full detail, CEO in the room.** Walk through all of **Track B (B1–B10)**, not just bugs on the shipped app. Lead item: **B1's open question** (see B1's section) — the Central Hub build was scoped as attendance/payroll (Work Location, Clock In/Out, Overtime, late-submission flags), but the real business bills **hours × rate + expenses → client invoice**, with **no overtime** at all, and the core billing math already works today (Reports page) independent of B1. That mismatch surfaced just from describing the actual invoicing process out loud — other Track B items may need the same reality check, so go through B2–B10 with the team too, not only B1. **Exit for part 2:** a revised Track B (scope/priority changes recorded in this doc) that build work resumes against — brainstorm now, build after.
+
+**Exit (both parts):** team + CEO sign-off.
 
 ---
 
@@ -249,24 +253,33 @@ Functional + UX feedback pass by the team on the live sci-fi-roster app. Finding
 
 # Track B — Post-launch roadmap
 
-*Recommended order: B2 → B4 → B1 → B3 → B5 → B6 (B7/B8/B10 are decision gates that can run any time; B9 folds into A4).*
+*Recommended order: B2 → B4 → B1 → B3 → B5 → B6 (B7/B8/B10 are decision gates that can run any time; B9 folds into A4). **B1's position + scope are provisional — pending the A7 team review, see B1's open question below.***
 
-## B1 · Phase 2 / M1 — Timesheet → Central Hub *(the big one)*
+## B1 · Phase 2 / M1 — Timesheet → Central Hub *(the big one — 🔴 scope in question, see below)*
 
-**Status:** 📋 roadmap (the only unbuilt WMS module) · **Owner:** 🤖 build, 🧑 decisions + Studio applies · **Effort:** L (est. 3–5 sessions, 2–3 migrations) · **Risk:** RSK-1 (touches the core table every page reads)
+**Status:** 📋 roadmap (the only unbuilt WMS module) · **🔴 open question raised 2026-07-13 — needs a CEO decision at A7 before build starts** · **Owner:** 🤖 build, 🧑 decisions + Studio applies · **Effort:** L (est. 3–5 sessions, 2–3 migrations) · **Risk:** RSK-1 (touches the core table every page reads)
 
-**Why first among builds:** it retroactively hardens two shipped modules — PT weekly wages and evaluation KPIs currently read **logged** hours (acknowledged in `js/pages/expenses-report.js:201`); M1 makes them read **approved-and-locked** hours. Also unlocks 3 deferred features (per-entry PT approval, Business-Trip auto-fill, finance-grade payroll export).
+**🔍 Open question for the A7 team review (CEO decision needed) — raised 2026-07-13:**
+The user described the actual billing process: track time worked → **× rate per employee** → **+ other additional** (expenses/travel) → **send invoice to client**. **No overtime** exists in the business model at all. That's a time-and-materials billing workflow — but B1 as originally scoped (below) is attendance/payroll-shaped: Work Location, Clock In/Out, Overtime Hours, late-submission flags. Before flagging this as just an opinion, checked what's actually already built:
+- **The core billing math already works today, live, with zero dependency on B1.** `js/pages/reports.js` already computes `hours × billable_rate` per employee, rolled up by project (`_aggregate()` → `amt = hrs * rate`), with a THB "Amount" KPI and CSV export. It reads logged time directly — nothing about it needs Central Hub submission, approval, or locking.
+- **No invoice-generation step exists anywhere in the app.** Labor cost (Reports) and expenses (Expenses Report) are two separate reports with no combined per-project/per-client total — whoever sends the invoice today assembles it by hand from two exports. That looks like the real gap in "track time → invoice," and B1 as scoped doesn't address it.
+- **The one piece of B1 that's plausibly still worth keeping regardless:** locking a week's hours once they've been billed, so nobody edits time after the client's been invoiced. That's a narrow slice of B1.a (submission + lock), not the attendance/overtime machinery built around it.
 
-**Design decisions to settle FIRST (🧑, one planning session):**
+**Options to put in front of the CEO at A7:** (a) build B1 as originally scoped below — full attendance/payroll Central Hub; (b) descope to just a billed-hours lock, and separately scope a new, smaller **Invoice** feature (combine labor + expenses per project/client into one client-ready number/document) instead; (c) something else, once the team discusses actual billing pain points together. **Do not start B1 build work until this is decided** — the rest of this section (original scoping) is kept for context, not as a decided plan.
+
+**Why first among builds (original framing, kept for context):** it retroactively hardens two shipped modules — PT weekly wages and evaluation KPIs currently read **logged** hours (acknowledged in `js/pages/expenses-report.js:201`); M1 makes them read **approved-and-locked** hours. Also unlocks 3 deferred features (per-entry PT approval, Business-Trip auto-fill, finance-grade payroll export).
+
+**Design decisions to settle FIRST (🧑, one planning session) — all provisional on the open question above:**
 | # | Question | Leaning |
 |---|---|---|
+| D0 | Does an attendance/payroll Central Hub match our business model at all, given we bill hours × rate with no overtime? | 🔴 **Open — see callout above. CEO decides at A7.** |
 | D1 | Submission granularity: per-week `timesheet_submissions` table (week, user, status, approver) vs per-entry status column | Per-week table + entry `status` mirror — spec §4.4 says weekly submit/approve/lock |
 | D2 | Clock In/Out mandatory for FT? (PT already hour-logged) | Optional at first — attendance fields nullable |
-| D3 | Overtime formula (above standard hours = 8/day? 40/wk?) | Needs HE policy input |
+| D3 | Overtime formula (above standard hours = 8/day? 40/wk?) | Needs HE policy input — **may be moot per D0, since the business has no overtime today** |
 | D4 | Who unlocks an approved week | Admin only (spec §4.5) |
 | D5 | Late-submission threshold (OD-7) | e.g. Tuesday 12:00 for prior week |
 
-**Build phases:**
+**Build phases (if option (a) is chosen at A7):**
 - **B1.a Schema** — migration: `work_location` enum + `clock_in/clock_out` + `overtime_hours` on `time_entries`; new `timesheet_submissions` (user, week_monday, status draft/submitted/approved/rejected, approver_id, comment, locked_at); RLS (owner writes draft-week entries only; manager approves direct reports via `is_manager_of()`; admin override/unlock); lock-enforcement trigger (reject entry writes in a locked week). Scratch-PG16 test suite like R55's.
 - **B1.b Auto-fill engine** — on approval of leave / flex / holiday / trip (M2/M4 triggers): upsert locked, status-tagged timesheet rows for the affected dates; idempotent; conflict rule (existing manual entry on an approved-leave day → flag, don't overwrite).
 - **B1.c UI** — Timesheet page: week status banner + Submit button (weekNav component, `ts` prefix stays); Approvals queue for managers (new tab on Team or Notifications page — decide in planning); locked-row styling; reject-with-comment modal (promptModal).
