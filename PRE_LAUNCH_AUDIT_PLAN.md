@@ -70,6 +70,8 @@ Policies added after the last full audit (`20260701`):
 - `20260712` — client_block_* RESTRICTIVE on 12 more tables (incl. `employee_compensation`) + `audit_log_select_admin` → `is_admin()`
 - `20260629` — audit_log INSERT (actor_id = auth.uid() enforced?)
 - `20260630` — leave_requests status CHECK widened (manager_approved)
+- `20260713` — Team-visibility scoping: `profiles_select` replaced with a role-scoped predicate + 3 new helpers (`shares_group`, `is_my_report`, `is_client_on_my_projects`)
+- `20260713b` — drops the mis-attached `trg_project_assignment_role` trigger from `project_assignments` (fixes a pre-existing bug: the table was unwritable since creation)
 
 Verify each in Studio: `SELECT tablename, policyname, permissive, cmd, qual, with_check FROM pg_policies WHERE policyname IN (...) ORDER BY tablename, policyname;`
 
@@ -82,6 +84,24 @@ ORDER BY tablename, policyname;
 -- Expect 16 policies incl. RESTRICTIVE client_block_* on all 6 tables.
 SELECT count(*) FROM pg_policies WHERE tablename='pn_items' AND cmd='INSERT';
 -- POSITIVE CONTROL — expect 0: minting is RPC-only (pn_create_item), no INSERT policy.
+```
+
+**Team-visibility policy check (R61 — `20260713`/`20260713b`):**
+```sql
+SELECT policyname, cmd, qual FROM pg_policies
+WHERE tablename='profiles' AND policyname='profiles_select';
+-- Expect 1 row; qual references shares_group()/is_my_report()/
+-- is_client_on_my_projects()/is_admin(), not a bare auth.uid() check.
+
+SELECT proname, proconfig FROM pg_proc
+WHERE proname IN ('shares_group','is_my_report','is_client_on_my_projects');
+-- Expect 3 rows, each with search_path pinned in proconfig.
+
+SELECT event_object_table, trigger_name FROM information_schema.triggers
+WHERE action_statement ILIKE '%check_assignment_role%';
+-- Expect exactly 1 row: task_assignments / trg_task_assignment_role.
+-- project_assignments must NOT appear (would mean the fix didn't apply and
+-- the Projects Managers section in 2I still throws on every write).
 ```
 
 ### 1G · Audit log INSERT policy
@@ -169,6 +189,13 @@ Test with the sci-fi roster accounts (before roster swap).
 - [ ] Delete an item (admin) → next mint does **not** reuse the number (gap-free, never-reused)
 - [ ] Clients page: `code` (CCC) input saves; Projects page: `code` (PPP) input saves; uniqueness enforced
 
+### 2I · Team & Projects (R61 — new)
+- [ ] Team page as **member**: shows same-group staff only — zero client rows, no billable-rate column anywhere on the page
+- [ ] Team page as **manager**: shows same-group staff + direct reports, plus read-only client rows for clients on the manager's own assigned projects only (those rows have no rate/role/group/delete controls)
+- [ ] Team page as **admin/owner**: shows all staff + all clients (clients read-only, unchanged from before)
+- [ ] Projects → assign modal → **Managers** section: toggling a manager on/off writes to `project_assignments` with no error (regression for the 20260713b trigger-bug fix — this table was unwritable since creation until this round)
+- [ ] Assign a manager to a project → that project's client now appears (read-only) on the manager's Team page — confirms `is_client_on_my_projects()` end-to-end, not just that the write succeeded
+
 ---
 
 ## Phase 3 — Data integrity checks
@@ -203,6 +230,14 @@ FROM leave_balances GROUP BY 1,2,3 HAVING COUNT(*) > 1;
 
 -- Profiles with role='client' but no client_id (broken provisioning)
 SELECT id, role, client_id FROM profiles WHERE role='client' AND client_id IS NULL;
+-- Expected: 0 rows
+
+-- Orphaned project assignments (20260713b regression — table was unwritable
+-- until this round; confirm still clean once the 2I walkthrough starts using it)
+SELECT pa.id, pa.project_id, pa.manager_id FROM project_assignments pa
+LEFT JOIN projects p ON p.id = pa.project_id
+LEFT JOIN profiles pr ON pr.id = pa.manager_id
+WHERE p.id IS NULL OR pr.id IS NULL;
 -- Expected: 0 rows
 ```
 
@@ -360,9 +395,9 @@ Dashboard toggle (L-PWLEAK).
 | 1A anon probe | 61/61 PASS via `anon_probe.ps1` (real script, replaces the never-existent `anon_probe.scratch.ps1`) |
 | 1B–1C role probes | 0 issues found |
 | 1D client probe | 0 FAIL (41 checks: 34 R59 baseline + 7 Part Numbers; run as a real `role='client'` login) |
-| 1E–1H policy/RPC checks | All policies present (incl. 16 pn + CORS regression: 7 fns echo new origin, none echo old); F-05 RPCs in prod ✅ verified 2026-06-30 (3 rows) — regression re-check only |
-| 2A–2H functional walkthrough | 0 blocking bugs (2H = Part Numbers) |
-| 3 data integrity | All queries return 0 rows (incl. P1–P4 Part Numbers) |
+| 1E–1H policy/RPC checks | All policies present (incl. 16 pn + CORS regression: 7 fns echo new origin, none echo old; + R61: `profiles_select` role-scoped, 3 helper fns search_path-pinned, exactly 1 `check_assignment_role` trigger left on `task_assignments`); F-05 RPCs in prod ✅ verified 2026-06-30 (3 rows) — regression re-check only |
+| 2A–2I functional walkthrough | 0 blocking bugs (2H = Part Numbers, 2I = Team & Projects / R61 scoping) |
+| 3 data integrity | All queries return 0 rows (incl. P1–P4 Part Numbers + the `project_assignments` orphan check) |
 | 4A–4E UI/UX | 0 dark-theme violations, 0 broken states, 0 CSP console violations |
 | 5 triage | F-05 ✅ verified in prod (Phase 1H, done); CONV-M4 ✅ verified resolved; L-CSP ✅ fixed (⚠️ live console check still pending — see below); others explicitly deferred |
 | Help-page gate (exec-order step 3) | `js/pages/help.js` covers Part Numbers, Admin Logs, Account Status, Client Portal in EN + TH before team review (A5) |

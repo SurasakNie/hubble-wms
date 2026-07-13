@@ -192,15 +192,15 @@ grounded in an actual derived count.
 
 ## A4 · Execute pre-launch audit Phases 1–4
 
-**Status:** 🔴 blocked on network — **cannot run from this container** (hard 403 to prod Supabase + Pages, re-confirmed 2026-07-09) · **Owner:** 🧑/🌐 · **Effort:** ~2–4 h human time · **Depends:** A2 + A3 · **Blocks:** A7
+**Status:** 🟡 in progress, user-driven — **1A/1B/1C/1D done live against prod** (anon 61/61, client 41/41, member 5/5, manager scoping+bounce pass). Along the way, 1C/Phase-2 surfaced a real gap (Team page showed the whole org to members) → built + shipped as **R61 Team-visibility scoping** (`20260713`/`20260713b`, RLS-enforced, all 4 re-audit legs green — see CLAUDE.md R61). **Remaining: 1E/1F/1G/1H/2/3/4** — coverage now extended for the R61 migrations (this session, 🤖, docs+scripts only) so the run picks up cleanly. Actual execution still **cannot happen from this container** (hard 403 to prod Supabase + Pages, re-confirmed again this session). · **Owner:** 🧑/🌐 · **Effort:** ~2–4 h human time · **Depends:** A2 + A3 · **Blocks:** A7
 
-**What:** run [PRE_LAUNCH_AUDIT_EXECUTION_PACKET.md](PRE_LAUNCH_AUDIT_EXECUTION_PACKET.md) top to bottom: 1A anon probe → 1B member probe → 1C manager probe → 1D client probe → 1E Edge-Fn validation **+ new CORS block** → 1F policy review (+ pn) → 1G audit-log spoof test → 1H RPC regression → Phase 2 walkthrough (2A–2G **+ 2H Part Numbers**; during 2F confirm a `provision_client_login` row appears in Admin Logs — closes B9.1) → Phase 3 integrity SQL (+ P1–P4) → Phase 4 UI/UX **+ L-CSP live console check** (zero CSP violations on both pages; Inter font renders; login + app boot work).
+**What:** run [PRE_LAUNCH_AUDIT_EXECUTION_PACKET.md](PRE_LAUNCH_AUDIT_EXECUTION_PACKET.md) top to bottom from where it left off: 1E Edge-Fn validation + CORS block (`edge_probe.ps1`) → 1F policy review (+ pn **+ R61 `profiles_select`/helper-fn/trigger-fix check**) → 1G audit-log spoof test → 1H RPC regression → Phase 2 walkthrough (2A–2G, 2H Part Numbers, **2I Team & Projects — new, R61**; during 2F confirm a `provision_client_login` row appears in Admin Logs — closes B9.1) → Phase 3 integrity SQL (+ P1–P4 **+ new `project_assignments` orphan check**) → Phase 4 UI/UX **+ L-CSP live console check** (zero CSP violations on both pages; Inter font renders; login + app boot work).
 
 **Needs from 🧑:** Studio access; sci-fi member/manager/admin creds; a provisioned test client login; member + admin access tokens (from the `login` fn response).
 
 **Report back:** pass/fail per phase + failing detail → 🤖 folds results into the plan docs and fixes anything code-fixable (with cache bump per CLAUDE.md).
 
-**Acceptance:** every pass-criteria row green (with the corrected targets), or failures triaged into fix tasks.
+**Acceptance:** every pass-criteria row green (with the corrected targets), or failures triaged into fix tasks. **Separate open item:** R61 (v=125) is built + verified but not yet merged to main — needs an explicit 🧑 go-ahead, independent of the A4 run.
 
 ---
 

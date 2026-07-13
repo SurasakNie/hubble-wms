@@ -221,6 +221,33 @@ SELECT count(*) FROM pg_policies WHERE tablename='pn_items' AND cmd='INSERT';
 **Pass:** 16 rows total, one RESTRICTIVE `client_block_*` per pn table, and 0 INSERT
 policies on `pn_items`.
 
+### Team-visibility scoping review (R61 — `20260713`/`20260713b`)
+
+```sql
+-- profiles_select must now be role-scoped, not the old blanket-read policy
+SELECT policyname, cmd, qual FROM pg_policies
+WHERE tablename='profiles' AND policyname='profiles_select';
+-- Expect 1 row; qual should reference shares_group()/is_my_report()/
+-- is_client_on_my_projects()/is_admin() — not a bare "auth.uid() IS NOT NULL".
+
+-- The 3 new SECURITY DEFINER helpers, search_path pinned (0028/0011 hardening)
+SELECT proname, proconfig FROM pg_proc
+WHERE proname IN ('shares_group','is_my_report','is_client_on_my_projects');
+-- Expect 3 rows, each with a search_path entry in proconfig (none NULL).
+
+-- project_assignments trigger-fix regression (20260713b) — the fix removed a
+-- mis-attached trigger that made the table permanently unwritable
+SELECT event_object_table, trigger_name FROM information_schema.triggers
+WHERE action_statement ILIKE '%check_assignment_role%';
+-- Expect exactly 1 row: task_assignments / trg_task_assignment_role.
+-- If project_assignments still appears, the fix migration didn't apply and
+-- the Projects page's Managers section (2I) will still throw on every write.
+```
+
+**Pass:** `profiles_select` present with the role-scoped `qual`; all 3 helper
+functions present with pinned `search_path`; exactly 1 `check_assignment_role`
+trigger left, on `task_assignments` only.
+
 ---
 
 ## Phase 1G — Audit log INSERT policy (spoofed actor_id test)
@@ -275,6 +302,14 @@ FROM leave_balances GROUP BY 1,2,3 HAVING COUNT(*) > 1;
 
 -- 6. Client profiles missing client_id
 SELECT id, role, client_id FROM profiles WHERE role='client' AND client_id IS NULL;
+
+-- 7. Orphaned project assignments (20260713b regression — table was unwritable
+--    until this round, so this should already be 0, but confirm before/after
+--    the 2I Managers-section walkthrough puts real rows in it)
+SELECT pa.id, pa.project_id, pa.manager_id FROM project_assignments pa
+LEFT JOIN projects p ON p.id = pa.project_id
+LEFT JOIN profiles pr ON pr.id = pa.manager_id
+WHERE p.id IS NULL OR pr.id IS NULL;
 ```
 
 ### Part Numbers integrity (A3.4 — all expect 0 rows)
@@ -335,6 +370,7 @@ Use https://surasaknie.github.io/hubble-wms/ with sci-fi roster accounts, one ro
 - [ ] **Admin Logs**: entries appear for leave/expense approve-reject, client provision, employee edit; entity/actor/date filters work; pagination kicks in past 20 rows
 - [ ] **Client Portal** (separate client login): own company/project shown; hours-by-project chart renders; expenses/travel table scoped to own rows; text export contains only own data; zero employee names visible anywhere
 - [ ] **Part Numbers** (2H): admin/manager mints `CCC-PPP-CAT-SEQ` on a real project (clear error if project/client `code` missing); member can mint but Categories/Lists/Customer-PN managers are hidden/denied; client `#part-numbers` shows no data; category picker = 11 governed codes + "covers"/decision-ladder help; attribute dropdowns default **TBD**, Lists modal opens; client filter narrows the project picker; revision bump writes history + ⓘ→Compare diffs two revisions; deep link `#part-numbers?project=<id>` preselects; duplicate customer PN rejected without burning a seq; delete → next mint doesn't reuse the number; Clients `code` + Projects `code` inputs save with uniqueness enforced
+- [ ] **Team & Projects** (2I, R61 new): member's Team page shows same-group staff only — zero client rows, no billable-rate column; manager's Team page shows same-group staff + direct reports + read-only client rows (no rate/role/group/delete controls) scoped to clients on the manager's own assigned projects; admin/owner Team page shows all staff + all clients (clients read-only); Projects → assign modal's **Managers** section toggles a manager on/off `project_assignments` without the old `record "new" has no field "assignee_type"` error; assigning a manager to a project makes that project's client appear on the manager's Team page (positive-control follow-through)
 
 ---
 
