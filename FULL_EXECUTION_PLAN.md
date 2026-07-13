@@ -5,7 +5,7 @@
 **What this is:** the single consolidated plan for everything left on this project, in two tracks:
 
 - **Track A — Launch path** (A1–A8, strictly ordered): everything between today and the real-roster go-live. Wraps [PRE_LAUNCH_AUDIT_PLAN.md](PRE_LAUNCH_AUDIT_PLAN.md) (executed at A4) and folds in the 2026-07-09 review findings against it (fixed at A2–A3).
-- **Track B — Post-launch roadmap** (B1–B9, ordered by recommended value): supersedes the stale status column in [HE_Integrations_and_WMS_Roadmap.md](HE_Integrations_and_WMS_Roadmap.md) Part 2 and the retired "Future roadmap" section of PENDING_TASKS.md.
+- **Track B — Post-launch roadmap** (B1–B10, ordered by recommended value): supersedes the stale status column in [HE_Integrations_and_WMS_Roadmap.md](HE_Integrations_and_WMS_Roadmap.md) Part 2 and the retired "Future roadmap" section of PENDING_TASKS.md.
 
 **Owner legend:** 🤖 = Claude session in this repo (no prod network — hard 403 to Supabase/Pages, re-confirmed 2026-07-09) · 🧑 = user (prod access, Studio, credentials, or a decision) · 🌐 = any human/agent with real network access (browser + curl against prod).
 
@@ -19,15 +19,14 @@
 A0+A1 (Studio migrations, one sitting — do any time)    Track B (post-launch)
                                                           go-live ─→ B2 Sheets daily export (first, tiny)
 A2 (doc fixes) ─→ A3 (audit coverage) ─→ A4 (run audit)            B4 toggles (any time, 5 min)
-A5 (Help page) ────────────────────────────┐                       B1 M1 central hub (big build)
-A6 (closeout content) ─────────────────────┤                       B3 audit-backlog batch
-                                           ▼                       B7 decisions ─→ B6 deferred features
-                                    A7 (team review)               B5 BOM (after B1 or parallel)
-                                           ▼                       B8 paid tiers (CEO) · B9 verify/close
-                                    A8 (roster swap → GO-LIVE)
+A5 (Help page) ─────────────────────────────┐                      B1 M1 central hub (big build)
+                                            ▼                       B3 audit-backlog batch
+                                     A7 (team review)               B7/B8/B10 decisions ─→ B6 deferred features
+                                            ▼                       B5 BOM (after B1 or parallel)
+                                     A8 (roster swap → GO-LIVE)     B9 verify/close
 ```
 
-A2 must precede A4 (the auditor needs corrected targets/URLs); A3 should precede A4 (or the audit under-tests Part Numbers and CORS). A5 and A6 only need to land before A7. A8 is last, always.
+A2 must precede A4 (the auditor needs corrected targets/URLs); A3 should precede A4 (or the audit under-tests Part Numbers and CORS). A5 only needs to land before A7 (closeout content — template wording + leave-policy decision — moved off the launch path to **B10**; it no longer gates the team review). A8 is last, always.
 
 ---
 
@@ -221,21 +220,9 @@ grounded in an actual derived count.
 
 ---
 
-## A6 · Closeout content (decisions + wording)
-
-**Status:** 🟡 partial — **A6.3 done** (R60 cont., 2026-07-10); **A6.1 + A6.2 still open, blocked on 🧑 decisions** · **Owner:** 🧑 decides, 🤖 wires · **Effort:** M (mostly 🧑 writing time) · **Depends:** nothing · **Blocks:** A7 (ideally — reviewers should see real template wording)
-
-1. **Template wording** — all 9 document templates are workflow placeholders. 🧑 supplies final HE wording (EN or EN+TH per template) → paste via the in-app TEMPLATES editor (no code, no migration). Option: 🤖 drafts all 9 for 🧑 to edit — say the word.
-2. **Leave pro-rating + Dec-31 reset decision** — record the policy (carry-over? encashment? pro-rate mid-year joiners?). Currently the system defaults to 0 carry-over and has a noted-but-unbuilt Dec-31 reset plan. Decision gets recorded in `HE_WMS_Specification.md` §5; any automation becomes a B-track task.
-3. **Structure-doc re-sync** — ✅ **done.** `HE_interactive_timesheet_plan.md` §7 (File Structure) and §10 (Sidebar Navigation), plus `HE_WMS_Specification.md` §14 (Nav Map), all re-verified directly against `app.html`'s sidebar markup and the real `js/pages`/`js/api`/`js/components` listings — not carried forward from earlier rounds. All three now show the full 19-route nav (Client Portal, Admin Logs, Part Numbers, Help included) and the current file inventory (`app-init.js`/`login-init.js`, `holidays-*`/`expenses-*` submodule splits, `auditLog.js`, `partNumbers.js`).
-
-**Acceptance:** no template renders placeholder text (🔴 still open); leave policy decision written down (🔴 still open); nav trees match `app.html` (✅ met).
-
----
-
 ## A7 · Team review
 
-**Status:** ⏸ waiting on A4/A5/A6 · **Owner:** 🧑 + team · **Effort:** external
+**Status:** ⏸ waiting on A4/A5 · **Owner:** 🧑 + team · **Effort:** external *(closeout content — template wording + leave-policy decision — moved to Track B **B10**, 2026-07-13; it no longer gates this review)*
 
 Functional + UX feedback pass by the team on the live sci-fi-roster app. Findings triage: 🤖 fixes code-fixable items (cache bumps per CLAUDE.md), decisions logged in PENDING_TASKS. Exit = team sign-off.
 
@@ -262,7 +249,7 @@ Functional + UX feedback pass by the team on the live sci-fi-roster app. Finding
 
 # Track B — Post-launch roadmap
 
-*Recommended order: B2 → B4 → B1 → B3 → B5 → B6 (B7/B8 are decision gates that can run any time; B9 folds into A4).*
+*Recommended order: B2 → B4 → B1 → B3 → B5 → B6 (B7/B8/B10 are decision gates that can run any time; B9 folds into A4).*
 
 ## B1 · Phase 2 / M1 — Timesheet → Central Hub *(the big one)*
 
@@ -349,6 +336,18 @@ Recommendation standing since 2026-06-12: **Supabase Pro first** ($25/mo — man
 2. **Phase-2 placeholders** from the original tracker: Reminders tab, Apps/Timesheet preference tabs, optional Google app verification (clears the `…supabase.co` line on the OAuth consent screen).
 3. Delete the scratch Supabase project (flagged safe since R39) if not already done; rotate the age keypair per the backups README if the key ever touched a shared machine.
 
+## B10 · Closeout content (decisions + wording) *(moved from Track A's A6, 2026-07-13)*
+
+**Status:** 🟡 partial — **item 3 done** (R60 cont., 2026-07-10); **items 1 + 2 still open, blocked on 🧑 decisions** · **Owner:** 🧑 decides, 🤖 wires · **Effort:** M (mostly 🧑 writing time) · **Depends:** nothing · **Blocks:** nothing — no longer gates A7/A8, can land any time
+
+*(Originally Track A's A6, framed as "ideally before team review." Reclassified as post-launch: placeholder template text and the leave-carryover decision don't block reviewers from giving useful feedback on the actual app, and neither has to be settled before the roster swap. Do any time — before go-live if convenient, after if not.)*
+
+1. **Template wording** — all 9 document templates are workflow placeholders. 🧑 supplies final HE wording (EN or EN+TH per template) → paste via the in-app TEMPLATES editor (no code, no migration). Option: 🤖 drafts all 9 for 🧑 to edit — say the word.
+2. **Leave pro-rating + Dec-31 reset decision** — record the policy (carry-over? encashment? pro-rate mid-year joiners?). Currently the system defaults to 0 carry-over and has a noted-but-unbuilt Dec-31 reset plan. Decision gets recorded in `HE_WMS_Specification.md` §5; any automation becomes its own B-track task.
+3. **Structure-doc re-sync** — ✅ **done.** `HE_interactive_timesheet_plan.md` §7 (File Structure) and §10 (Sidebar Navigation), plus `HE_WMS_Specification.md` §14 (Nav Map), all re-verified directly against `app.html`'s sidebar markup and the real `js/pages`/`js/api`/`js/components` listings — not carried forward from earlier rounds. All three now show the full 19-route nav (Client Portal, Admin Logs, Part Numbers, Help included) and the current file inventory (`app-init.js`/`login-init.js`, `holidays-*`/`expenses-*` submodule splits, `auditLog.js`, `partNumbers.js`).
+
+**Acceptance:** no template renders placeholder text (🔴 still open); leave policy decision written down (🔴 still open); nav trees match `app.html` (✅ met).
+
 ---
 
 ## Immediate next actions
@@ -359,7 +358,7 @@ Recommendation standing since 2026-06-12: **Supabase Pro first** ($25/mo — man
 | ✅ Done 2026-07-10 | 🤖 | **A2 + A3** — all audit-doc fixes + audit coverage extensions (CORS regression block, Part Numbers policy/walkthrough/integrity, probe pn checks → 41) in one push |
 | **Now** | 🧑/🌐 | **A4** — run the execution packet against prod (targets now current) |
 | ✅ Done 2026-07-10 | 🤖 | **A5** Help page rebuild (JS v=122→v=123) — 🧑 in-browser spot-check still pending |
-| Parallel any time | 🤖 | **A6.1** template drafts if wanted |
+| Parallel any time | 🤖 | **B10.1** template drafts if wanted (moved off the launch path) |
 | Then | 🧑 | **A7** team review → **A8** roster swap (3 confirms) → **GO-LIVE** |
 | At go-live | 🤖+🧑 | **B2** Sheets daily export (needs Sheet URL) · **B4** toggles |
 | First post-launch build | 🤖 | **B1** M1 Central Hub (planning session first — settle D1–D5) |
