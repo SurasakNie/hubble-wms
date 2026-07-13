@@ -199,7 +199,7 @@ grounded in an actual derived count.
 
 **Report back:** pass/fail per phase + failing detail → 🤖 folds results into the plan docs and fixes anything code-fixable (with cache bump per CLAUDE.md).
 
-**Acceptance:** every pass-criteria row green (with the corrected targets), or failures triaged into fix tasks. **Separate open item:** R61 (v=125) is built + verified but not yet merged to main — needs an explicit 🧑 go-ahead, independent of the A4 run.
+**Acceptance:** every pass-criteria row green (with the corrected targets), or failures triaged into fix tasks. **Correction (2026-07-13):** R61 (v=125) was earlier logged here as "unmerged, pending go-ahead" — checked `origin/main` directly and it already has R61 (`app-init.js` on `main` reads `v=125`). It's merged and live; that's not an open item.
 
 ---
 
