@@ -99,7 +99,8 @@ WHERE proname IN ('shares_group','is_my_report','is_client_on_my_projects');
 
 SELECT event_object_table, trigger_name FROM information_schema.triggers
 WHERE action_statement ILIKE '%check_assignment_role%';
--- Expect exactly 1 row: task_assignments / trg_task_assignment_role.
+-- Expect only task_assignments rows — commonly 2 (information_schema.triggers
+-- gives one row per event for a multi-event trigger), not a discrepancy.
 -- project_assignments must NOT appear (would mean the fix didn't apply and
 -- the Projects Managers section in 2I still throws on every write).
 ```
@@ -395,7 +396,7 @@ Dashboard toggle (L-PWLEAK).
 | 1A anon probe | 61/61 PASS via `anon_probe.ps1` (real script, replaces the never-existent `anon_probe.scratch.ps1`) |
 | 1B–1C role probes | 0 issues found |
 | 1D client probe | 0 FAIL (41 checks: 34 R59 baseline + 7 Part Numbers; run as a real `role='client'` login) |
-| 1E–1H policy/RPC checks | All policies present (incl. 16 pn + CORS regression: 7 fns echo new origin, none echo old; + R61: `profiles_select` role-scoped, 3 helper fns search_path-pinned, exactly 1 `check_assignment_role` trigger left on `task_assignments`); F-05 RPCs in prod ✅ verified 2026-06-30 (3 rows) — regression re-check only |
+| 1E–1H policy/RPC checks | ✅ **1E + 1G done 2026-07-15** (22 PASS credentialed, A4-F2 CORS fixed → 18 PASS post-fix). ✅ **1F done 2026-07-15** — all policies present (16 pn incl. positive control; R61 `profiles_select` role-scoped exact-match, 3 helper fns search_path-pinned, trigger check shows only `task_assignments` rows, zero `project_assignments`). F-05 RPCs in prod ✅ verified 2026-06-30 (3 rows) — 1H regression re-check still to run. |
 | 2A–2I functional walkthrough | 0 blocking bugs (2H = Part Numbers, 2I = Team & Projects / R61 scoping) |
 | 3 data integrity | All queries return 0 rows (incl. P1–P4 Part Numbers + the `project_assignments` orphan check) |
 | 4A–4E UI/UX | 0 dark-theme violations, 0 broken states, 0 CSP console violations |

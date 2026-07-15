@@ -182,20 +182,19 @@ SELECT tablename, policyname, permissive, cmd, qual, with_check
 FROM pg_policies
 WHERE policyname IN (
   -- 20260704
-  'profiles_update_own', 'evr_update', 'jtcr_own_select', 'jtcr_own_insert',
+  'profiles_update_own', 'evr_update', 'jtcr_select_own', 'jtcr_insert_own',
   -- 20260706 (client scoping — exact names may vary, check by table too)
   -- 20260707 (client_read_hardening)
   -- 20260708 (client_block_* RESTRICTIVE)
   'client_block_time_entries', 'client_block_leave_requests', 'client_block_employees',
   -- 20260629 (audit_log)
-  'audit_log_insert_own',
+  'audit_log_insert',
   -- 20260630 (leave_requests status widen — CHECK constraint, not a policy; see next query)
   'lr_update'
 )
 ORDER BY tablename, policyname;
 ```
-If a name above doesn't match what's actually in prod, run the broader query first
-to discover real names, then narrow:
+**Names verified live 2026-07-15** against the actual policy names on `job_title_change_requests` and `audit_log` (the doc previously guessed `jtcr_own_select`/`jtcr_own_insert`/`audit_log_insert_own` — real names have the `_own` suffix/position swapped: `jtcr_select_own`/`jtcr_insert_own`/`audit_log_insert`). If a name above still doesn't match what's in prod, run the broader query first to discover real names, then narrow:
 ```sql
 SELECT tablename, policyname, cmd FROM pg_policies
 WHERE tablename IN ('profiles','evaluation_responses','job_title_change_requests',
@@ -204,7 +203,8 @@ ORDER BY tablename, policyname;
 ```
 
 **Pass:** all expected policies present, `with_check` non-null where a WITH CHECK
-is expected (especially `profiles_update_own`, `audit_log_insert_own`).
+is expected (especially `profiles_update_own`, `audit_log_insert` — the latter's
+`with_check` should read `(actor_id = auth.uid())`).
 
 ### Part Numbers policy review (A3.2 — `20260710`/`20260711`)
 
@@ -239,14 +239,16 @@ WHERE proname IN ('shares_group','is_my_report','is_client_on_my_projects');
 -- mis-attached trigger that made the table permanently unwritable
 SELECT event_object_table, trigger_name FROM information_schema.triggers
 WHERE action_statement ILIKE '%check_assignment_role%';
--- Expect exactly 1 row: task_assignments / trg_task_assignment_role.
+-- Expect only task_assignments rows — commonly 2 (information_schema.triggers
+-- gives one row per event for a multi-event trigger, e.g. BEFORE INSERT OR
+-- UPDATE), not a discrepancy. What matters: zero project_assignments rows.
 -- If project_assignments still appears, the fix migration didn't apply and
 -- the Projects page's Managers section (2I) will still throw on every write.
 ```
 
 **Pass:** `profiles_select` present with the role-scoped `qual`; all 3 helper
-functions present with pinned `search_path`; exactly 1 `check_assignment_role`
-trigger left, on `task_assignments` only.
+functions present with pinned `search_path`; the trigger query returns only
+`task_assignments` rows (2 is normal) and zero `project_assignments` rows.
 
 ---
 
