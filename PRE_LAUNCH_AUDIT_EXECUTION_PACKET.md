@@ -308,7 +308,10 @@ SELECT id, role, client_id FROM profiles WHERE role='client' AND client_id IS NU
 -- 7. Orphaned project assignments (20260713b regression — table was unwritable
 --    until this round, so this should already be 0, but confirm before/after
 --    the 2I Managers-section walkthrough puts real rows in it)
-SELECT pa.id, pa.project_id, pa.manager_id FROM project_assignments pa
+-- NOTE: project_assignments has no surrogate id column (only project_id +
+-- manager_id as its natural key, per js/api/projects.js) — verified live
+-- 2026-07-15 after the original query (with pa.id) threw 42703.
+SELECT pa.project_id, pa.manager_id FROM project_assignments pa
 LEFT JOIN projects p ON p.id = pa.project_id
 LEFT JOIN profiles pr ON pr.id = pa.manager_id
 WHERE p.id IS NULL OR pr.id IS NULL;
