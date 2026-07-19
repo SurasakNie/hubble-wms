@@ -186,6 +186,21 @@ export async function getProjectManagers(projectId) {
   return (data || []).map(r => r.manager_id);
 }
 
+// Project ids the currently-authenticated user manages (for the manager
+// self-assign toggle on the Projects page). RLS lets a manager read their own
+// project_assignments rows.
+export async function getMyManagedProjectIds() {
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth?.user?.id;
+  if (!uid) return [];
+  const { data, error } = await supabase
+    .from('project_assignments')
+    .select('project_id')
+    .eq('manager_id', uid);
+  if (error) throw error;
+  return (data || []).map(r => r.project_id);
+}
+
 export async function assignManager(projectId, managerId) {
   const { error } = await supabase
     .from('project_assignments')

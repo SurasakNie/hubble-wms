@@ -14,6 +14,37 @@ Go through the sections in order: **Member → Manager → Admin → Client** (l
 
 ---
 
+## ✅ R63 status (2026-07-16) — first walkthrough done, fixes applied
+
+The first live run is complete; all findings were root-caused and fixed (cache
+v=126). **What still needs a RE-TEST after the user applies the 3 pending Studio
+migrations and deploys v=126** (in this order — apply `20260716b` gender column
+*before* the frontend push, or the employee/leave pages error on the new column):
+
+1. **Manager sees their team's rows** (`20260716`) — as a manager, confirm Team
+   Calendar, Timesheet employee-picker, Leave approvals, Flex approvals, and
+   Expense approvals now show direct reports' rows (were empty). Approve a
+   report's pending leave end-to-end.
+2. **Admin cross-user views** (`20260716`) — as admin, pick another employee in
+   Calendar/Timesheet and confirm their entries display (Tracker now defaults to
+   "Myself").
+3. **Maternity leave** (`20260716b`) — set an employee's Gender = Female in the
+   employee modal; confirm Maternity appears in their leave-type dropdown and is
+   hidden for a male/unset employee.
+4. **Mileage total distance** (`20260716c`) — submit a round-trip claim; the
+   stored reimbursement must equal distance × rate (not ×2).
+5. **Duplicate customer PN** — re-test on a project whose Customer-PN mode is
+   **manual** (the first test was almost certainly a `none`-mode project, where
+   there is no customer PN to duplicate and the internal number is always fresh).
+
+Everything else from the first run is fixed in v=126 (calendar arrows, billable
+role-gating, tracker default, leave year range, balance-card order, PN category
+required, code-duplicate error messages, employee-edit audit logging, manager
+self-assign) or confirmed by-design (petty cash admin-only; client bounced from
+`#part-numbers`).
+
+---
+
 ## 🧑 Member account
 
 ### 2A · Calendar & Timesheet

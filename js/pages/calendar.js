@@ -9,7 +9,7 @@ import { toISODate, formatDuration, getMondayOf, safeColor, esc } from '../forma
 import { getEmployees } from '../api/employees.js';
 import { empSelectHtml, wireEmpSelect } from '../components/empSelect.js';
 import { getPublicHolidays } from '../api/holidays.js';
-import { weekNavHtml, wireWeekNav, updateWeekNavLabel } from '../components/weekNav.js';
+import { weekNavHtml, updateWeekNavLabel } from '../components/weekNav.js';
 
 const FC_CDN = 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js';
 
@@ -206,11 +206,31 @@ export async function render(profile) {
   });
 
   _calendar.render();
-  wireWeekNav('cal',
-    () => getMondayOf(_calendar?.view?.currentStart ?? new Date()),
-    d  => { _calendar.gotoDate(d); },
-    () => {}   // no-op: FullCalendar navigation triggers datesSet which updates the label
-  );
+  // Calendar navigates via FullCalendar's own view-aware prev()/next() — they
+  // advance by one month / week / day to match the active view — NOT weekNav's
+  // fixed ±7-day Monday snap (which left "next month" dead in month view and
+  // jumped Monday-to-Monday in day view). The label stays in sync via datesSet.
+  const $cal = id => document.getElementById(id);
+  $cal('cal-wk-prev')?.addEventListener('click', () => _calendar.prev());
+  $cal('cal-wk-next')?.addEventListener('click', () => _calendar.next());
+  const _calLabel  = $cal('cal-wk-label');
+  const _calPicker = $cal('cal-wk-picker');
+  _calLabel?.addEventListener('click', () => {
+    if (!_calPicker) return;
+    _calPicker.value = toISODate(_calendar.getDate());
+    if (typeof _calPicker.showPicker === 'function') {
+      try { _calPicker.showPicker(); return; } catch { /* fall through */ }
+    }
+    _calPicker.style.opacity = '1';
+    _calPicker.style.width = 'auto';
+    _calPicker.focus();
+  });
+  _calPicker?.addEventListener('change', () => {
+    if (!_calPicker.value) return;
+    _calendar.gotoDate(_calPicker.value);
+    _calPicker.style.opacity = '0';
+    _calPicker.style.width = '0';
+  });
   _wireToolbar();
   _applyZoom();   // size slots so the default view shows ~12 h (changeView lays out aligned)
 }

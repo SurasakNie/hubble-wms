@@ -15,10 +15,10 @@ import {
 } from '../api/leaves.js';
 
 import { S } from './holidays-state.js';
-import { renderHolidays } from './holidays-holidays.js?v=122';
-import { renderMyLeave, renderFlex, renderBalances } from './holidays-my-leave.js?v=122';
-import { renderTeamLeave, renderTeamFlex } from './holidays-team.js?v=122';
-import { renderApprovals, renderTeamBalance } from './holidays-approvals.js?v=122';
+import { renderHolidays } from './holidays-holidays.js?v=126';
+import { renderMyLeave, renderFlex, renderBalances } from './holidays-my-leave.js?v=126';
+import { renderTeamLeave, renderTeamFlex } from './holidays-team.js?v=126';
+import { renderApprovals, renderTeamBalance } from './holidays-approvals.js?v=126';
 
 // ── Entry point ───────────────────────────────────────────────
 
@@ -88,14 +88,14 @@ export async function render(profile) {
       ]);
       // Admin's own employee record (needed for MY LEAVE / FLEX SWAP personal submit)
       const { data: myEmpData } = await supabase
-        .from('employees').select('id, full_name, employee_id')
+        .from('employees').select('id, full_name, employee_id, gender')
         .eq('user_id', profile.id).maybeSingle();
       S.myEmployee = myEmpData || null;
     } else if (S.manager) {
       S.holidays = await getPublicHolidays(S.year);
       const { data: empData } = await supabase
         .from('employees')
-        .select('id, full_name, employee_id')
+        .select('id, full_name, employee_id, gender')
         .eq('user_id', profile.id)
         .maybeSingle();
       S.myEmployee = empData || null;
@@ -111,7 +111,7 @@ export async function render(profile) {
       S.holidays = await getPublicHolidays(S.year);
       const { data: empData } = await supabase
         .from('employees')
-        .select('id, full_name, employee_id')
+        .select('id, full_name, employee_id, gender')
         .eq('user_id', profile.id)
         .maybeSingle();
       S.myEmployee = empData || null;

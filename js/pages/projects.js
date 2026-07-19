@@ -5,7 +5,7 @@
 import {
   getProjects, createProject, updateProject, deleteProject, getProjectStats,
   getTasks, createTask, assignTask, unassignTask,
-  getProjectManagers, assignManager, unassignManager,
+  getProjectManagers, assignManager, unassignManager, getMyManagedProjectIds,
 } from '../api/projects.js';
 import { getClients } from '../api/clients.js';
 import { getUsers, getGroups } from '../api/users.js';
@@ -17,9 +17,20 @@ const PALETTE = [
   '#8bc34a', '#ff5722', '#3f51b5', '#795548', '#607d8b', '#f44336',
 ];
 
+// Turn the raw Postgres unique-violation on the project-code index into a
+// human message (project codes are unique per client).
+function _friendlyProjectError(err) {
+  const m = err?.message || 'Something went wrong';
+  if (/projects_code_uq|unique.*code|code.*unique/i.test(m)) {
+    return 'That project code is already in use for this client — pick a different one.';
+  }
+  return m;
+}
+
 let _profile       = null;
 let _projects      = [];
 let _clients       = [];
+let _myManagedIds  = new Set();   // project ids the current manager is assigned to (self-assign toggle)
 let _search        = '';
 let _activeFilter  = 'active';   // active | all | archived
 let _clientFilter  = '';         // client id | ''
@@ -80,11 +91,17 @@ export async function render(profile) {
   _wireControls();
 
   // Load clients (for dropdowns) + projects in parallel.
+  _myManagedIds = new Set();
   try {
     [_clients, _projects] = await Promise.all([
       getClients({ activeOnly: false }),
       getProjects({ includeArchived: true }),
     ]);
+    // Managers (not admin — admin has the full assign modal) get a per-row
+    // self-assign toggle; preload which projects they already manage.
+    if (isManager() && !isAdmin()) {
+      _myManagedIds = new Set(await getMyManagedProjectIds().catch(() => []));
+    }
   } catch (err) {
     window.showToast?.(err.message, 'error');
     _clients = _clients || [];
@@ -182,12 +199,30 @@ function _renderTable() {
     if (admin) tr.querySelector('.pr-dot')?.addEventListener('click', () => _openColorPicker(p));
     tr.querySelector('.act-partnums')?.addEventListener('click', () => { window.location.hash = '#part-numbers?project=' + p.id; });
     tr.querySelector('.act-assign')?.addEventListener('click', () => _openAssignModal(p));
+    tr.querySelector('.act-mgr-toggle')?.addEventListener('click', () => _toggleMyManager(p));
     tr.querySelector('.act-edit')?.addEventListener('click', () => _openProjectModal(p));
     tr.querySelector('.act-fav')?.addEventListener('click', () => _toggleFavorite(p));
     tr.querySelector('.act-archive')?.addEventListener('click', () => _setArchived(p, true));
     tr.querySelector('.act-restore')?.addEventListener('click', () => _setArchived(p, false));
     tr.querySelector('.act-delete')?.addEventListener('click', () => _confirmDelete(p));
   });
+}
+
+// Manager joins/leaves themselves on a project (self-assign only; the pa_insert
+// RLS policy permits manager_id = auth.uid()). Admins use the full assign modal.
+async function _toggleMyManager(p) {
+  const uid = _profile?.id;
+  if (!uid) return;
+  const joined = _myManagedIds.has(p.id);
+  try {
+    if (joined) { await unassignManager(p.id, uid); _myManagedIds.delete(p.id); }
+    else        { await assignManager(p.id, uid);   _myManagedIds.add(p.id); }
+    _renderTable();
+    _hydrateStats();
+    window.showToast?.(joined ? 'You left this project' : 'You are now a manager on this project', 'success');
+  } catch (err) {
+    window.showToast?.(err.message, 'error');
+  }
 }
 
 function _renderRow(p, admin) {
@@ -218,9 +253,23 @@ function _renderRow(p, admin) {
         </svg>
       </button>`;
 
+  // Manager self-assign toggle (only for managers, who can't reach the admin assign modal).
+  const isMgr = !admin && isManager();
+  const mgrJoined = isMgr && _myManagedIds.has(p.id);
+  const mgrBtn = isMgr
+    ? `<button class="row-action-btn act-mgr-toggle" title="${mgrJoined ? 'Leave as manager' : 'Join as manager'}"
+              style="${mgrJoined ? 'color:var(--accent);' : ''}">
+         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+           <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+         </svg>
+       </button>`
+    : '';
+
   const actions = `
     <div class="row-actions">
       ${pnBtn}
+      ${mgrBtn}
       ${admin ? `
       <button class="row-action-btn act-assign" title="Assign members">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -738,7 +787,7 @@ function _openProjectModal(project) {
       _renderTable();
       _hydrateStats();
     } catch (err) {
-      window.showToast?.(err.message, 'error');
+      window.showToast?.(_friendlyProjectError(err), 'error');
       saveBtn.disabled = false;
     }
   });

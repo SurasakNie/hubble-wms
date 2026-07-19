@@ -142,6 +142,22 @@ Test with the sci-fi roster accounts (before roster swap).
 > replaces an actual click-through before go-live sign-off — see the
 > 2026-07-16 entry in `PENDING_TASKS.md` for full detail per finding.
 
+> **2026-07-16 (b) — LIVE walkthrough done + R63 fixes applied.** The user ran the
+> full 2A–2I click-through on prod and returned results; every finding was
+> root-caused and fixed (cache v=126, branch `claude/phase-2-static-audit-66040`).
+> Status legend below: **✅ live-pass** · **🔧 fixed R63 (client-side, in v=126)** ·
+> **🗄 fixed R63 pending Studio migration** · **📋 by-design (docs corrected)** ·
+> **🔁 re-test after migration/deploy**. Live gaps + fixes by section:
+> - **2A**: 🔧 calendar prev/next (view-aware now); 🔧 billable checkbox admin/manager-only; 🔧 Tracker defaults to "Myself"; 🗄🔁 admin/manager cross-user entries were empty → `20260716` adds the missing `time_entries` manager/admin RLS. Submit-for-approval + standalone WFH toggle: confirmed **not built** (product decision, not scheduled).
+> - **2B**: ✅ 2-tier leave, flex, holidays, balance tab; 🔧 year selector 3→5; 🔧 balance-card order stabilized; 🗄🔁 manager saw none of a report's leave/flex → same `20260716` RLS; 🔧🗄 maternity now female-only (needs `20260716b` gender column, apply before deploy).
+> - **2C**: ✅ expense/trip/petty-cash flows; 🗄🔁 manager couldn't see a report's expense to approve → `20260716`; 🔧🗄 mileage round-trip ×2 removed (client done; `20260716c` for the trigger). Petty-cash member access: **📋 stays admin-only** (checklist corrected).
+> - **2D**: ✅ approve/reject requests, account status; 🔧 employee field edits now audit-logged (see 2F). Avatar edit still absent (deferred).
+> - **2E**: ✅ clients/documents/reports all live-pass.
+> - **2F**: ✅ filters/pagination/existing events; 🔧 plain employee edits now log `update_employee`.
+> - **2G**: ✅ client portal fully live-pass (own data only, no employee names, export clean).
+> - **2H**: ✅ mint/format/delete-gap/category-help; 🔧 category now required (placeholder + guard); 🔧 CCC/PPP dup-code human error toast; 📋🔁 "duplicate customer PN made the same number" = expected (dedupe only in `manual` customer-PN mode; internal number always fresh) → re-test with a manual-mode project.
+> - **2I**: ✅ member/manager/admin Team views + admin assign; 🔧 managers now get a self-assign Join/Leave button on Projects (couldn't reach the admin modal). Manager editing others' projects stays 📋 admin-only.
+
 ### 2A · Calendar & Timesheet
 - [x] 🔍 Calendar renders current month, public holidays shown (`calendar.js` — holiday fetch errors are silently swallowed though, worth a UX check)
 - [ ] 🐛 Weekly timesheet: add/edit/delete entries work, but **no "submit for approval" step exists anywhere** in `timesheet.js`/`calendar.js` — entries save as final immediately. Confirm intentional vs. missing.

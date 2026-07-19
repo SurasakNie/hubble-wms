@@ -1,0 +1,57 @@
+-- 20260716c_mileage_total_distance.sql
+-- Stop the mileage reimbursement from doubling round-trip distance.
+--
+-- WHY: R63 walkthrough — the entered distance is already the TOTAL trip
+-- distance, but round-trip claims were being multiplied by 2 (once on the
+-- client preview, once again in the DB trigger that is the source of truth).
+-- The client preview is fixed in js/api/expenses.js (previewMileage no longer
+-- multiplies). This migration removes the same ×2 from the authoritative
+-- server-side trigger so the stored amount matches the preview. Trip type
+-- (one-way / round-trip) becomes informational only.
+--
+-- ⚠️ NEEDS LIVE DDL — the trigger/function body is NOT in this repo (it was
+--    created directly in Studio and never committed). DO NOT guess the body.
+--    Steps:
+--   1. Find the trigger + its function on travel_claims:
+--        SELECT tgname, pg_get_triggerdef(oid) AS def
+--        FROM pg_trigger
+--        WHERE tgrelid = 'public.travel_claims'::regclass AND NOT tgisinternal;
+--        -- then, for the function name it names (e.g. calc_travel_claim):
+--        SELECT pg_get_functiondef('public.calc_travel_claim'::regproc);
+--   2. In that function body, find the round-trip factor. It will look like one
+--      of:
+--        v_mult := CASE WHEN NEW.trip_type = 'round_trip' THEN 2 ELSE 1 END;
+--        ... NEW.distance_km * 2 ...   (when trip_type = 'round_trip')
+--   3. Remove the ×2 so the effective distance is simply NEW.distance_km,
+--      regardless of trip_type. Re-apply the WHOLE function with
+--      CREATE OR REPLACE FUNCTION ... (keep its existing signature, language,
+--      SECURITY setting, and the search_path pin if present — do not drop it).
+--   4. The trigger definition itself does not need recreating (CREATE OR REPLACE
+--      FUNCTION keeps the trigger binding). Then:
+--        NOTIFY pgrst, 'reload schema';
+--
+-- CONVENTIONS: no BEGIN/COMMIT wrapper; each statement autocommits; keep the
+-- function's search_path pin.
+--
+-- -- TEMPLATE (fill in from the dumped body — signature/name will differ) -----
+-- CREATE OR REPLACE FUNCTION public.<dumped_function_name>()
+-- RETURNS trigger
+-- LANGUAGE plpgsql
+-- SECURITY DEFINER            -- keep whatever the dump shows
+-- SET search_path = public    -- keep if the dump has it
+-- AS $$
+-- BEGIN
+--   -- ... unchanged lines from the dump ...
+--   -- effective distance is the entered total (NO round-trip ×2):
+--   --   v_eff := COALESCE(NEW.distance_km, 0);
+--   -- reimbursement / depreciation computed from v_eff as before.
+--   RETURN NEW;
+-- END;
+-- $$;
+--
+-- NOTIFY pgrst, 'reload schema';
+--
+-- -- VERIFY -------------------------------------------------------------------
+-- Submit a round-trip claim with distance_km = 100 and a known rate; the stored
+-- reimbursement must equal 100 × rate (NOT 200 × rate), matching the on-screen
+-- preview from the fixed previewMileage().

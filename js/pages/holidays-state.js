@@ -154,6 +154,8 @@ export function _balCards(rows) {
   // Deduplicate by leave_type_code — guard against data anomalies
   const seen = new Set();
   rows = rows.filter(b => { if (seen.has(b.leave_type_code)) return false; seen.add(b.leave_type_code); return true; });
+  // Stable card order regardless of query order (else Sick/Maternity etc. swap between loads)
+  rows = [...rows].sort((a, b) => (a.leave_type_code || '').localeCompare(b.leave_type_code || ''));
   return `<div style="display:flex;flex-wrap:wrap;gap:12px;">
     ${rows.map(b => {
       const lt    = S.leaveTypes.find(x => x.code === b.leave_type_code);

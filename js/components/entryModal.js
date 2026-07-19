@@ -6,6 +6,7 @@ import { getProjectsForEntry } from '../api/projects.js';
 import { getTags } from '../api/tags.js';
 import { formatTime, formatDuration, timesToHours, todayISO, esc, safeColor } from '../format.js';
 import { confirmModal } from './confirmModal.js';
+import { isAdmin, isManager } from '../auth.js';
 
 let _profile  = null;
 let _projects = [];
@@ -182,14 +183,15 @@ function _renderModal({ title, date, startTime, endTime, totalHours = '', projec
             </div>
           </div>
 
-          <!-- Billable toggle -->
+          <!-- Billable toggle (admin/manager only — members' entries keep their default billable state) -->
+          ${(isAdmin() || isManager()) ? `
           <div class="form-group">
             <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
               <input type="checkbox" id="em-billable" ${isBillable ? 'checked' : ''} style="width:15px;height:15px;">
               Billable
               <span class="text-muted" style="font-size:12px;">Mark this entry as billable</span>
             </label>
-          </div>
+          </div>` : ''}
 
           <!-- Description -->
           <div class="form-group">
@@ -275,7 +277,7 @@ function _renderModal({ title, date, startTime, endTime, totalHours = '', projec
       const taskId      = mount.querySelector('#em-task').value || null;
       const date        = mount.querySelector('#em-date').value;
       const description = mount.querySelector('#em-description').value.trim();
-      const isBillable  = mount.querySelector('#em-billable').checked;
+      const billable    = mount.querySelector('#em-billable')?.checked ?? isBillable;
       let startTime = null, endTime = null, totalHours = null;
       if (mode === 'start-end') {
         startTime = mount.querySelector('#em-start').value || null;
@@ -285,7 +287,7 @@ function _renderModal({ title, date, startTime, endTime, totalHours = '', projec
       }
       const newEntry = await createEntry({
         projectId, taskId, date, startTime, endTime, totalHours,
-        description, isBillable, tagIds: [..._selectedTagIds],
+        description, isBillable: billable, tagIds: [..._selectedTagIds],
       });
       _closeModal();
       if (_onSave) _onSave(newEntry);
@@ -306,7 +308,7 @@ function _renderModal({ title, date, startTime, endTime, totalHours = '', projec
       const taskId      = mount.querySelector('#em-task').value || null;
       const date        = mount.querySelector('#em-date').value;
       const description = mount.querySelector('#em-description').value.trim();
-      const isBillable  = mount.querySelector('#em-billable').checked;
+      const billable    = mount.querySelector('#em-billable')?.checked ?? isBillable;
 
       if (!projectId) { window.showToast?.('Please select a project', 'error'); saveBtn.disabled = false; return; }
       if (!date)      { window.showToast?.('Please select a date', 'error');    saveBtn.disabled = false; return; }
@@ -323,7 +325,7 @@ function _renderModal({ title, date, startTime, endTime, totalHours = '', projec
         totalHours = parseFloat(mount.querySelector('#em-total').value) || null;
       }
 
-      const payload = { projectId, taskId, date, startTime, endTime, totalHours, description, isBillable, tagIds: _selectedTagIds };
+      const payload = { projectId, taskId, date, startTime, endTime, totalHours, description, isBillable: billable, tagIds: _selectedTagIds };
       if (_userId) payload.userId = _userId;  // admin creating entry for a teammate
 
       let saved;

@@ -13,6 +13,16 @@ const EDGE = 'https://sjkggguedgtynktymzes.supabase.co/functions/v1';
 
 const CURRENCIES = ['THB', 'USD', 'EUR', 'GBP', 'JPY', 'SGD', 'AUD'];
 
+// Turn the raw Postgres unique-violation on the company-code index into a
+// human message (otherwise the toast shows "duplicate key value violates …").
+function _friendlyClientError(err) {
+  const m = err?.message || 'Something went wrong';
+  if (/clients_code_uq|unique.*code|code.*unique/i.test(m)) {
+    return 'That company code is already in use — pick a different one.';
+  }
+  return m;
+}
+
 let _profile      = null;
 let _clients      = [];
 let _search       = '';
@@ -260,7 +270,7 @@ async function _handleAdd() {
     logAction('create_client', 'client', client.id, client.name,
       { name: client.name, currency: client.currency });
   } catch (err) {
-    window.showToast?.(err.message, 'error');
+    window.showToast?.(_friendlyClientError(err), 'error');
   } finally {
     addBtn.disabled = false;
   }
@@ -365,7 +375,7 @@ function _openEditModal(client) {
       logAction('update_client', 'client', client.id, payload.name || client.name,
         Object.keys(changes).length ? { fields: changes } : null);
     } catch (err) {
-      window.showToast?.(err.message, 'error');
+      window.showToast?.(_friendlyClientError(err), 'error');
       saveBtn.disabled = false;
     }
   });

@@ -590,6 +590,17 @@ function _renderModal(isEdit, admin) {
                 <input type="date" id="em-f-dob" value="${attr(emp.date_of_birth || '')}">
               </div>
             </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)">
+              <div class="form-group">
+                <label>Gender</label>
+                <select id="em-f-gender">
+                  <option value="">— Not set —</option>
+                  <option value="female" ${emp.gender === 'female' ? 'selected' : ''}>Female</option>
+                  <option value="male" ${emp.gender === 'male' ? 'selected' : ''}>Male</option>
+                </select>
+                <span class="text-muted" style="font-size:var(--font-xs)">Used to scope maternity leave eligibility.</span>
+              </div>
+            </div>
             <div style="border-top:1px solid var(--border);padding-top:var(--sp-3);margin-top:var(--sp-1)">
               <div class="text-muted" style="font-size:var(--font-xs);font-weight:600;margin-bottom:var(--sp-2)">EMERGENCY CONTACT</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)">
@@ -1144,6 +1155,7 @@ function _renderModal(isEdit, admin) {
         personalEmail:                mount.querySelector('#em-f-personal-email')?.value.trim()|| null,
         personalPhone:                mount.querySelector('#em-f-phone')?.value.trim()         || null,
         dateOfBirth:                  mount.querySelector('#em-f-dob')?.value                  || null,
+        gender:                       mount.querySelector('#em-f-gender')?.value               || null,
         emergencyContactName:         mount.querySelector('#em-f-ec-name')?.value.trim()       || null,
         emergencyContactRelationship: mount.querySelector('#em-f-ec-rel')?.value.trim()        || null,
         emergencyContactPhone:        mount.querySelector('#em-f-ec-phone')?.value.trim()      || null,
@@ -1157,12 +1169,23 @@ function _renderModal(isEdit, admin) {
 
       let saved;
       if (isEdit) {
+        const before = _modalEmployee;
         saved = await updateEmployee(_modalEmployee.id, payload);
         const idx = _employees.findIndex(x => x.id === saved.id);
         if (idx >= 0) _employees[idx] = saved;
         // Keep profiles.name (shown in Team page) in sync with employees.full_name
         if (payload.fullName && saved.user_id) {
           await updateProfileName(saved.user_id, payload.fullName).catch(() => {});
+        }
+        // Audit-log plain field edits (account-state actions log separately; before
+        // this, ordinary profile edits left no entry in Admin Logs at all).
+        const TRACKED = ['full_name', 'department_code', 'employment_type_code', 'job_title',
+          'salary_grade', 'direct_manager_id', 'contact_email', 'personal_email', 'personal_phone',
+          'date_of_birth', 'gender', 'emergency_contact_name', 'emergency_contact_relationship',
+          'emergency_contact_phone', 'start_date', 'contract_end_date', 'probation_end_date', 'status'];
+        const changed = TRACKED.filter(f => (before?.[f] ?? null) !== (saved?.[f] ?? null));
+        if (changed.length) {
+          logAction('update_employee', 'employee', saved.id, saved.full_name, { changed });
         }
       } else {
         saved = await createEmployee(payload);

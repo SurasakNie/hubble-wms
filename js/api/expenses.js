@@ -208,9 +208,11 @@ export async function overrideTransactionStatus(id, status) {
 // ── TRAVEL CLAIMS (mileage) ───────────────────────────────────
 
 // Client-side preview of the reimbursement (the DB trigger is the source of truth).
+// The entered distance is the TOTAL trip distance already, so trip type is
+// informational only — do NOT multiply round-trips by 2 (the 20260716c migration
+// removes the same ×2 from the server-side trigger to match).
 export function previewMileage({ distanceKm, tripType, rate, depreciation, manualAmount }) {
-  const mult = tripType === 'round_trip' ? 2 : 1;
-  const eff  = (Number(distanceKm) || 0) * mult;
+  const eff  = (Number(distanceKm) || 0);
   const reimbursement = Math.round((eff * (Number(rate) || 0) + (Number(manualAmount) || 0)) * 100) / 100;
   const dep           = Math.round((eff * (Number(depreciation) || 0)) * 100) / 100;
   return { effectiveKm: eff, reimbursement, depreciation: dep, total: reimbursement + dep };

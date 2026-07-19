@@ -358,8 +358,12 @@ function _openItemModal(item) {
   const proj = _currentProject();
   const manual = _config && _config.customer_pn_mode === 'manual';
 
-  const catOptions = _categories.map(t =>
-    `<option value="${attr(t.code)}"${item && item.cat_code === t.code ? ' selected' : ''}>${esc(t.code)} — ${esc(t.description)}</option>`).join('');
+  // On a NEW item, force a deliberate choice: a disabled placeholder is selected
+  // by default (no implicit first-category default → fail-safe against mis-tagging).
+  const catOptions =
+    (isEdit ? '' : `<option value="" disabled selected>— Select category —</option>`) +
+    _categories.map(t =>
+      `<option value="${attr(t.code)}"${item && item.cat_code === t.code ? ' selected' : ''}>${esc(t.code)} — ${esc(t.description)}</option>`).join('');
 
   const attrRows = ATTR_KINDS.map(k => `
     <label style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px;">
@@ -416,7 +420,9 @@ function _openItemModal(item) {
   const refreshCat = () => {
     const cat = _categories.find(t => t.code === catSel.value);
     catHelp.textContent = cat?.covers || '';
-    if (preview && proj) preview.textContent = `Number: ${proj.client?.code}-${proj.code}-${catSel.value}-### (assigned on generate)`;
+    if (preview && proj) preview.textContent = catSel.value
+      ? `Number: ${proj.client?.code}-${proj.code}-${catSel.value}-### (assigned on generate)`
+      : 'Pick a category to see the number format.';
   };
   catSel.addEventListener('change', refreshCat);
   refreshCat();
@@ -425,6 +431,7 @@ function _openItemModal(item) {
   mount.querySelector('#pn-i-save').addEventListener('click', async () => {
     const name = mount.querySelector('#pn-i-name').value.trim();
     if (!name) { window.showToast?.('Enter an item name', 'error'); return; }
+    if (!isEdit && !catSel.value) { window.showToast?.('Select a category', 'error'); return; }
     const btn = mount.querySelector('#pn-i-save');
     btn.disabled = true;
     const attrVals = {};
