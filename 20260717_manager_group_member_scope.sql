@@ -7,8 +7,9 @@
 --   manager     : see + approve for SELF + same-group users whose role = 'member'.
 --                 A manager can see the NAMES of same-group admins/managers
 --                 (Team page / profiles) but NOT their time/leave/flex/expense.
---   member      : own data only; cannot approve anything. Can see names of
---                 same-group admins/managers, not their data.
+--   member      : own data only; cannot approve anything. Can see the NAMES of
+--                 ALL same-group staff (other members, managers, admins) via the
+--                 Team page / profiles_select, but NOT any of their data.
 --   client      : unchanged (blocked by client_block_* RESTRICTIVE policies).
 --
 -- Name/roster visibility already matches this (profiles_select uses shares_group
