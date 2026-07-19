@@ -17,9 +17,10 @@ Go through the sections in order: **Member → Manager → Admin → Client** (l
 ## ✅ R63 status (2026-07-16) — first walkthrough done, fixes applied
 
 The first live run is complete; all findings were root-caused and fixed (cache
-v=126). **What still needs a RE-TEST after the user applies the 3 pending Studio
-migrations and deploys v=126** (in this order — apply `20260716b` gender column
-*before* the frontend push, or the employee/leave pages error on the new column):
+v=126). **Update 2026-07-16: all 3 migrations applied in Studio (user-confirmed)
+and v=126 merged to `main` + deployed** — plus one post-audit fix in the same
+deploy: Calendar/Timesheet now also default to "Myself" like the Tracker.
+**What still needs a RE-TEST now that everything is live:**
 
 1. **Manager sees their team's rows** (`20260716`) — as a manager, confirm Team
    Calendar, Timesheet employee-picker, Leave approvals, Flex approvals, and
