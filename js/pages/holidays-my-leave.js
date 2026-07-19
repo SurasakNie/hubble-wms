@@ -292,7 +292,6 @@ export function renderFlex(wrap, saveTabState) {
 }
 
 function _renderFlexSwapForm(body, wrap, saveTabState) {
-  const today = todayISO();
   body.innerHTML = `
     <div style="max-width:540px;display:flex;flex-direction:column;gap:18px;margin-bottom:32px;">
       <div class="form-label" style="font-size:15px;font-weight:600;">Submit Flex Holiday Swap</div>
@@ -306,9 +305,9 @@ function _renderFlexSwapForm(body, wrap, saveTabState) {
 
       <div>
         <label class="form-label">Substitute date (working day off instead)
-          <input class="form-input" type="date" id="hl-flex-sub" min="${today}">
+          <input class="form-input" type="date" id="hl-flex-sub">
         </label>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Select a weekday (Mon–Fri) as your substitute day off.</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Select a weekday (Mon–Fri) as your substitute day off. Past dates are allowed for recording a swap against a holiday that already occurred.</div>
       </div>
 
       <div id="hl-flex-window" style="display:none;font-size:12px;color:var(--text-muted);padding:8px 12px;
