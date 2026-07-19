@@ -123,8 +123,8 @@ function _renderQuickAddForm() {
       </select>
       <div id="qa-tags-display" style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;"></div>
 
-      <!-- Billable toggle -->
-      <button class="btn-billable active" id="qa-billable" title="Billable">$</button>
+      <!-- Billable toggle (admin/manager only — members' entries default to billable) -->
+      ${(isAdmin() || isManager()) ? `<button class="btn-billable active" id="qa-billable" title="Billable">$</button>` : ''}
 
       <!-- Divider -->
       <span aria-hidden="true" style="width:1px; height:24px; background:var(--border); flex-shrink:0;"></span>
@@ -307,7 +307,11 @@ function _parseDurationToHours(str) {
 // ──────────────────────────────────────────────────────────────
 
 async function _loadEntries() {
-  const uid = _viewUserId || undefined;
+  // Default the list to the current user ("Myself"); admins/managers only see
+  // teammates' rows after explicitly picking one. Without this, once time_entries
+  // RLS lets admins read all rows (20260716 migration) the list would show
+  // everyone by default.
+  const uid = _viewUserId || _profile.id;
   [_entries, _total] = await Promise.all([
     getTrackerEntries({ limit: PAGE_SIZE, offset: _page * PAGE_SIZE, userId: uid }),
     countEntries({ userId: uid }),

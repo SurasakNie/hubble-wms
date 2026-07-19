@@ -61,7 +61,8 @@ export async function getAllLeaveBalances(year) {
     .from('leave_balances')
     .select(BALANCE_SELECT + ', employee:employees!leave_balances_employee_id_fkey(id, full_name, employee_id)')
     .eq('year', year)
-    .order('employee_id');
+    .order('employee_id')
+    .order('leave_type_code');   // stable card order (else Sick/Maternity etc. swap between loads)
   if (error) throw error;
   return data || [];
 }

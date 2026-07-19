@@ -35,7 +35,9 @@ export function renderMyLeave(wrap) {
 
       <label class="form-label">Leave Type
         <select class="form-input" id="hl-ml-type">
-          ${S.leaveTypes.filter(t => t.code !== 'flex_holiday').map(t => `<option value="${attr(t.code)}">${esc(t.label)}</option>`).join('')}
+          ${S.leaveTypes.filter(t => t.code !== 'flex_holiday'
+              && (t.code !== 'maternity_leave' || S.myEmployee?.gender === 'female'))
+            .map(t => `<option value="${attr(t.code)}">${esc(t.label)}</option>`).join('')}
         </select>
       </label>
 
@@ -427,7 +429,7 @@ export function renderBalances(wrap) {
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
       <label style="font-weight:600;">Year</label>
       <select class="form-input" id="bal-year" style="width:90px;">
-        ${[balYear - 1, balYear, balYear + 1].map(y =>
+        ${[balYear - 2, balYear - 1, balYear, balYear + 1, balYear + 2].map(y =>
           `<option value="${y}"${y === balYear ? ' selected' : ''}>${y}</option>`
         ).join('')}
       </select>

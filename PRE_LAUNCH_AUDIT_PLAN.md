@@ -132,70 +132,94 @@ Use the production app at https://surasaknie.github.io/hubble-wms/
 [REPO_TRANSFER_CHECKLIST.md](REPO_TRANSFER_CHECKLIST.md); the old URL is dead, no redirect).
 Test with the sci-fi roster accounts (before roster swap).
 
+> **2026-07-16 note:** the container running that session has a hard 403 network
+> denial to `surasaknie.github.io` (proxy-enforced egress policy, not fixable
+> client-side). Every box below was instead traced through the real source
+> (page JS + API + RLS/RPC SQL) as a **static code audit** — marked 🔍-verified
+> where the code confirms the behavior, 🐛 where a real gap was found, and
+> ⚠️-unverified where the source needed to confirm it (usually RLS on an
+> older, pre-`20260629` table) isn't in this repo's tracked SQL. None of this
+> replaces an actual click-through before go-live sign-off — see the
+> 2026-07-16 entry in `PENDING_TASKS.md` for full detail per finding.
+
+> **2026-07-16 (b) — LIVE walkthrough done + R63 fixes applied.** The user ran the
+> full 2A–2I click-through on prod and returned results; every finding was
+> root-caused and fixed (cache v=126, branch `claude/phase-2-static-audit-66040`).
+> Status legend below: **✅ live-pass** · **🔧 fixed R63 (client-side, in v=126)** ·
+> **🗄 fixed R63 pending Studio migration** · **📋 by-design (docs corrected)** ·
+> **🔁 re-test after migration/deploy**. Live gaps + fixes by section:
+> - **2A**: 🔧 calendar prev/next (view-aware now); 🔧 billable checkbox admin/manager-only; 🔧 Tracker defaults to "Myself"; 🗄🔁 admin/manager cross-user entries were empty → `20260716` adds the missing `time_entries` manager/admin RLS. Submit-for-approval + standalone WFH toggle: confirmed **not built** (product decision, not scheduled).
+> - **2B**: ✅ 2-tier leave, flex, holidays, balance tab; 🔧 year selector 3→5; 🔧 balance-card order stabilized; 🗄🔁 manager saw none of a report's leave/flex → same `20260716` RLS; 🔧🗄 maternity now female-only (needs `20260716b` gender column, apply before deploy).
+> - **2C**: ✅ expense/trip/petty-cash flows; 🗄🔁 manager couldn't see a report's expense to approve → `20260716`; 🔧🗄 mileage round-trip ×2 removed (client done; `20260716c` for the trigger). Petty-cash member access: **📋 stays admin-only** (checklist corrected).
+> - **2D**: ✅ approve/reject requests, account status; 🔧 employee field edits now audit-logged (see 2F). Avatar edit still absent (deferred).
+> - **2E**: ✅ clients/documents/reports all live-pass.
+> - **2F**: ✅ filters/pagination/existing events; 🔧 plain employee edits now log `update_employee`.
+> - **2G**: ✅ client portal fully live-pass (own data only, no employee names, export clean).
+> - **2H**: ✅ mint/format/delete-gap/category-help; 🔧 category now required (placeholder + guard); 🔧 CCC/PPP dup-code human error toast; 📋🔁 "duplicate customer PN made the same number" = expected (dedupe only in `manual` customer-PN mode; internal number always fresh) → re-test with a manual-mode project.
+> - **2I**: ✅ member/manager/admin Team views + admin assign; 🔧 managers now get a self-assign Join/Leave button on Projects (couldn't reach the admin modal). Manager editing others' projects stays 📋 admin-only.
+
 ### 2A · Calendar & Timesheet
-- [ ] Calendar renders current month, public holidays shown
-- [ ] Weekly timesheet: add/edit/delete entries, submit for approval
-- [ ] WFH toggle works, flex swap request submits
-- [ ] Admin/manager sees all team entries; member sees own only
+- [x] 🔍 Calendar renders current month, public holidays shown (`calendar.js` — holiday fetch errors are silently swallowed though, worth a UX check)
+- [ ] 🐛 Weekly timesheet: add/edit/delete entries work, but **no "submit for approval" step exists anywhere** in `timesheet.js`/`calendar.js` — entries save as final immediately. Confirm intentional vs. missing.
+- [ ] 🐛 **No standalone WFH toggle** — WFH is only reachable via the flex-swap request form (`js/api/leaves.js`), not a per-entry toggle. Flex swap submit itself works.
+- [ ] ⚠️ Admin/manager sees all team entries; member sees own only — role-scoping is client-side (`_viewUserId` gated by `isAdmin()/isManager()`); no RLS for `time_entries` found in this repo's tracked SQL to confirm server-side enforcement (see note above — likely pre-dates the tracked-migration convention, not necessarily missing in prod)
 
 ### 2B · Leave & Holidays
-- [ ] My Leave: request leave, view balance cards, see status flow
-- [ ] 2-tier leave: request → manager_approved → HR approves → approved
-- [ ] Team Leave: manager sees direct reports' leave, admin sees all
-- [ ] Flex Swaps: request, approve (manager), reject
-- [ ] Holidays: calendar view + list view, admin can add/edit/delete
-- [ ] Balance tab: admin can initialize year, edit allocations
+- [x] 🔍 My Leave: request leave, view balance cards, see status flow — balance math correct, no off-by-one
+- [x] 🔍 2-tier leave: request → manager_approved → HR approves → approved — each step guards on the correct prior status, no double-approval race
+- [ ] ⚠️ Team Leave: manager UI (`holidays.js`/`holidays-team.js`) shows **all** employees' leave, not just direct reports — only the manager's own rows are excluded client-side. Same "no RLS found in repo" caveat as 2A applies; **do not treat as confirmed until a live Studio `pg_policies` check on `leave_requests`/`leave_balances`** (same pattern as R61's `profiles_select` verification)
+- [x] 🔍 Flex Swaps: request, approve (manager), reject — same solid guard pattern as leave approval
+- [x] 🔍 Holidays: calendar view + list view, admin CRUD — all correctly admin-gated
+- [x] 🔍 Balance tab: admin can initialize year, edit allocations — correctly gated, skips existing rows on init
 
 ### 2C · Expenses & Petty Cash
-- [ ] Submit expense, attach receipt (if applicable), status flow
-- [ ] Trip settlement: submit travel request → trip done → settle
-- [ ] Approvals: manager/admin approves/rejects, settlement confirmed
-- [ ] Petty Cash: admin top-up, member draw, reconcile
-- [ ] Per-diem rate shown correctly
+- [x] 🔍 Submit expense, status flow — correct; receipt URL optional, not enforced (by design, not flagged as a bug)
+- [x] 🔍 Trip settlement: request → done → settle — sound, relies on `approve_trip_settlement` RPC (not in this repo's SQL to verify server-side idempotency directly, but design/comments consistent)
+- [x] 🔍 Approvals: manager/admin approve/reject, settlement confirmed — two-tier pattern consistent across cash/travel-claim/travel-request; admin overrides intentionally skip the prior-status guard
+- [x] 🔍 Petty Cash: top-up/draw/reconcile — running balance correctly sums `status='approved'` only
+- [ ] 🧑 Per-diem/mileage rate: client-preview only, DB trigger is source of truth (not in repo to verify computation) — **still-open item from R62:** 23 expense-out rows with no `project_id` (allowed by design), incl. one ~456k THB outlier, deferred to A7/CEO review, not a code bug
 
 ### 2D · Employees & Requests
-- [ ] Directory: search, filter by dept, view profile
-- [ ] Account Status tab (admin): provision, reset, deactivate
-- [ ] Name-change request: submit → admin approves/rejects
-- [ ] Job-title request: submit → admin approves/rejects
-- [ ] Profile: edit own name, avatar; Security tab TOTP enroll/disable
+- [x] 🔍 Directory: search, filter by dept, view profile — correct
+- [x] 🔍 Account Status tab (admin): provision, reset, deactivate — correct Edge-Function pattern; activation-state fallback fails "open" (shows Activated) on missing data — confirm intentional
+- [ ] 🐛 Name-change request: submit → admin **approve** is RPC-based (atomic, correct) but **reject and cancel bypass the RPC**, writing directly to `name_change_requests` — relies on unverified RLS to block non-admins from doing the same
+- [ ] 🐛 Job-title request: same pattern — approve is RPC-based, **reject/cancel bypass it**
+- [ ] 🐛 Profile: name edit is correctly read-only (request-flow only) — but **no avatar-edit UI exists anywhere**, only an initials placeholder; Security tab TOTP enroll/disable is correctly implemented
 
 ### 2E · Clients & Documents
-- [ ] Admin: add client, manage logins, provision client login
-- [ ] Documents: create a template in the TEMPLATES editor, merge with employee data, preview
-- [ ] Reports: project stats, tag usage (admin/manager only)
+- [x] 🔍 Admin: add client, manage logins, provision client login — row-level admin gating solid; the quick-add form itself has no client-side admin guard (relies on RLS, not verified in repo) — confirm `clients` INSERT RLS live
+- [x] 🔍 Documents: template editor / merge / preview — correctly gated, flow intact
+- [x] 🔍 Reports: project stats, tag usage (admin/manager only) — **R61's manager rate-hiding reconfirmed correct** (`showAmount = isAdmin()`, rate fetch nested inside that gate)
 
 ### 2F · Admin Logs
-- [ ] Log entries appear for: leave approve/reject, expense approve/reject, client provision, employee edit
-- [ ] Filters (entity, actor, date range) work
-- [ ] Pagination works at >20 rows
+- [x] 🔍 Log entries appear for leave approve/reject, expense approve/reject, client provision — all confirmed via `logAction` call sites
+- [ ] 🐛 Employee edit: only account-state actions (provision/reset/deactivate/2FA-clear) are logged to `audit_log` — **plain field edits (name/title/salary) get no admin-log entry**; confirm whether the separate trigger-based `employee_audit_log` table is meant to be the record of these instead
+- [x] 🔍 Filters (entity, actor, date range) and pagination (`PAGE_SIZE=50`, correctly handles the >20-row case) — correct
 
 ### 2G · Client Portal (separate login)
-- [ ] Own company name and project shown
-- [ ] Hours by project bar chart renders
-- [ ] Expenses & travel table shows own rows only
-- [ ] Export (text) download contains correct data only
-- [ ] No employee names visible anywhere
+- [x] 🔍 Own company name and project shown; hours-by-project chart; expenses/travel scoped to own rows via RLS-backed project ids; text export reuses the same filtered data — all correct by construction, no employee-name fields ever requested
+- [ ] 🐛 **Freeform fields not sanitized** — expense `note` and travel `destination`/`travel_ref` pass through verbatim to the client-facing table/export; if staff type an employee's name into one, it leaks with no redaction. Soft/process risk, not an RLS bug.
+- [ ] ⚠️ `get_client_project_summary()` RPC body isn't in this repo to verify it never joins in an employee/name field — recommend pulling the live DDL for a one-time check
 
 ### 2H · Part Numbers (R54/55 — new)
-- [ ] Admin/manager: mint a PN on a real project → format `CCC-PPP-CAT-SEQ`; clear error if the project/client `code` is missing
-- [ ] **Member**: can mint, but Categories/Lists/Customer-PN managers are hidden/denied (manage is admin/manager-only)
-- [ ] Client login: `#part-numbers` shows nothing / no data (client_block_*)
-- [ ] Category picker shows 11 governed codes with "covers" help + decision ladder
-- [ ] Attribute dropdowns default to **TBD** when unset; Lists modal opens (R55 regression: the Lists-button bug)
-- [ ] Client filter narrows the project picker
-- [ ] Revision bump writes a history row; ⓘ info modal → **Compare** diffs two revisions
-- [ ] Deep link `#part-numbers?project=<id>` from a Projects row preselects the project
-- [ ] Duplicate customer PN (same project, case-insensitive) rejected **without burning a sequence number**
-- [ ] Delete an item (admin) → next mint does **not** reuse the number (gap-free, never-reused)
-- [ ] Clients page: `code` (CCC) input saves; Projects page: `code` (PPP) input saves; uniqueness enforced
+- [x] 🔍 Admin/manager: mint a PN on a real project → format `CCC-PPP-CAT-SEQ`; clear error if the project/client `code` is missing — confirmed in `pn_create_item` (`20260711_part_numbers_v2.sql`)
+- [x] 🔍 **Member**: can mint, but Categories/Lists/Customer-PN managers are hidden/denied — UI-gated correctly; DB-level write policies also admin/manager-only (defense in depth)
+- [x] 🔍 Client login: `#part-numbers` shows nothing — `client_block_*` RESTRICTIVE policies confirmed on all 6 `pn_*` tables
+- [x] 🔍 Category picker shows 11 governed codes with "covers" help + decision ladder — confirmed seeded correctly
+- [x] 🔍 Attribute dropdowns default to **TBD**; Lists modal opens — **R55 Lists-button bug confirmed still fixed** (double-guarded: no-arg click handler + a type-check fallback in `_openAttributesModal`)
+- [x] 🔍 Client filter narrows the project picker — confirmed
+- [x] 🔍 Revision bump writes a history row; Compare diffs two revisions — confirmed
+- [x] 🔍 Deep link `#part-numbers?project=<id>` preselects the project — confirmed
+- [x] 🔍 Duplicate customer PN rejected without burning a sequence number — **initially mis-flagged as broken by the audit pass, then verified false-positive**: the exception handler's `RAISE EXCEPTION` is uncaught and aborts the entire RPC transaction, so the earlier counter increment rolls back too. Confirmed correct.
+- [x] 🔍 Delete an item → next mint doesn't reuse the number — confirmed, counter is monotonic and untouched by delete
+- [ ] ⚠️ Clients/Projects `code` inputs save + uniqueness enforced — DB schema/constraints confirmed, but the actual page UI wasn't in this pass's reviewed files; still needs a quick look
 
 ### 2I · Team & Projects (R61 — new)
-- [ ] Team page as **member**: shows same-group staff only — zero client rows, no billable-rate column anywhere on the page
-- [ ] Team page as **manager**: shows same-group staff + direct reports, plus read-only client rows for clients on the manager's own assigned projects only (those rows have no rate/role/group/delete controls)
-- [ ] Team page as **admin/owner**: shows all staff + all clients (clients read-only, unchanged from before)
-- [ ] Projects → assign modal → **Managers** section: toggling a manager on/off writes to `project_assignments` with no error (regression for the 20260713b trigger-bug fix — this table was unwritable since creation until this round)
-- [ ] Assign a manager to a project → that project's client now appears (read-only) on the manager's Team page — confirms `is_client_on_my_projects()` end-to-end, not just that the write succeeded
+- [x] 🔍 Team page as **member**: same-group staff only, zero client rows, no rate column — confirmed (`profiles_select` policy + `team.js` rate-cell gating both correct)
+- [x] 🔍 Team page as **manager**: same-group + reports + read-only project-clients only, no rate/role/group/delete on those rows — confirmed
+- [x] 🔍 Team page as **admin/owner**: all staff + all clients, clients still read-only — confirmed
+- [x] 🔍 Projects → assign modal → **Managers** section writes to `project_assignments` with no error — confirmed; the 20260713b trigger fix drops `trg_project_assignment_role` from `project_assignments` only, `task_assignments`' own trigger and `check_assignment_role()` itself are untouched
+- [x] 🔍 Assign a manager to a project → that project's client appears read-only on their Team page — confirmed end-to-end via `is_client_on_my_projects()`, exactly matching what `assignManager` writes
 
 ---
 
@@ -399,7 +423,7 @@ Dashboard toggle (L-PWLEAK).
 | 1B–1C role probes | 0 issues found |
 | 1D client probe | 0 FAIL (41 checks: 34 R59 baseline + 7 Part Numbers; run as a real `role='client'` login) |
 | 1E–1H policy/RPC checks | ✅ **1E + 1G done 2026-07-15** (22 PASS credentialed, A4-F2 CORS fixed → 18 PASS post-fix). ✅ **1F done 2026-07-15** — all policies present (16 pn incl. positive control; R61 `profiles_select` role-scoped exact-match, 3 helper fns search_path-pinned, trigger check shows only `task_assignments` rows, zero `project_assignments`). F-05 RPCs in prod ✅ verified 2026-06-30 (3 rows) — 1H regression re-check still to run. |
-| 2A–2I functional walkthrough | 0 blocking bugs (2H = Part Numbers, 2I = Team & Projects / R61 scoping) |
+| 2A–2I functional walkthrough | 0 blocking bugs (2H = Part Numbers, 2I = Team & Projects / R61 scoping). **2026-07-16: run as a static code audit only** (no network access to prod from that container) — 4 non-blocking gaps found (2A submit-flow/WFH, 2D reject-bypass/avatar, 2F edit-logging, 2G note-sanitization) + 1 unverified RLS claim (2B team-leave scoping); see per-section notes above and the 2026-07-16 entry in `PENDING_TASKS.md`. **A live click-through is still owed before go-live sign-off.** |
 | 3 data integrity | All queries return 0 rows (incl. P1–P4 Part Numbers + the `project_assignments` orphan check) |
 | 4A–4E UI/UX | 0 dark-theme violations, 0 broken states, 0 CSP console violations |
 | 5 triage | F-05 ✅ verified in prod (Phase 1H, done); CONV-M4 ✅ verified resolved; L-CSP ✅ fixed (⚠️ live console check still pending — see below); others explicitly deferred |
