@@ -124,13 +124,18 @@ export async function render(profile) {
     // Keep the week-nav label in sync as the user navigates (also fires on initial render).
     datesSet: (info) => {
       const wknum = document.getElementById('cal-wk-wknum');
-      if (_calendar?.view?.type === 'dayGridMonth') {
+      const lbl   = document.getElementById('cal-wk-label');
+      const view  = _calendar?.view?.type;
+      if (view === 'dayGridMonth') {
         // info.start may be the last days of the previous month (first visible cell),
         // so use the midpoint of the visible range to reliably land in the correct month.
         const mid = new Date((info.start.valueOf() + info.end.valueOf()) / 2);
-        const lbl = document.getElementById('cal-wk-label');
         if (lbl) lbl.textContent = mid.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
         if (wknum) wknum.style.display = 'none';   // no week number in month view
+      } else if (view === 'timeGridDay') {
+        // Day view: show the single day, not the whole week.
+        if (lbl) lbl.textContent = info.start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        if (wknum) wknum.style.display = 'none';
       } else {
         const monday = getMondayOf(info.start);
         updateWeekNavLabel('cal', monday);
