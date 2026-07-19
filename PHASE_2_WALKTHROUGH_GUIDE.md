@@ -37,12 +37,26 @@ deploy: Calendar/Timesheet now also default to "Myself" like the Tracker.
 5. **Duplicate customer PN** — re-test on a project whose Customer-PN mode is
    **manual** (the first test was almost certainly a `none`-mode project, where
    there is no customer PN to duplicate and the internal number is always fresh).
+6. **Manager creates a project** (`20260716d`, PENDING Studio) — after applying
+   that migration, log in as a manager, click CREATE NEW PROJECT, fill it in, and
+   confirm it saves (was failing: the button showed but the DB INSERT was
+   admin-only). Editing/archiving others' projects stays admin-only by design.
 
 Everything else from the first run is fixed in v=126 (calendar arrows, billable
 role-gating, tracker default, leave year range, balance-card order, PN category
 required, code-duplicate error messages, employee-edit audit logging, manager
-self-assign) or confirmed by-design (petty cash admin-only; client bounced from
-`#part-numbers`).
+self-assign) or confirmed by-design.
+
+**Two walkthrough notes resolved as by-design / decided (no v=126 code change):**
+- **Member "can access the employee page"** — that was the **Team** page, which
+  members are meant to see (R61 same-group scoping). The admin Employees
+  Directory (`#employees`) is gated to admin only and its nav item is hidden for
+  everyone else, so there's no leak.
+- **Petty cash — member can't access** — intended; petty cash stays admin-only.
+- **Client bounced from `#part-numbers`** — intended; clients are confined to
+  the portal, so a manual hash is redirected there.
+- **Manager "can't create a project"** — you chose to **let managers create**;
+  handled by migration `20260716d` (re-test item 6 above), not a by-design block.
 
 ---
 

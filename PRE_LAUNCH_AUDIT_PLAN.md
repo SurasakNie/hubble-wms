@@ -156,7 +156,7 @@ Test with the sci-fi roster accounts (before roster swap).
 > - **2F**: ✅ filters/pagination/existing events; 🔧 plain employee edits now log `update_employee`.
 > - **2G**: ✅ client portal fully live-pass (own data only, no employee names, export clean).
 > - **2H**: ✅ mint/format/delete-gap/category-help; 🔧 category now required (placeholder + guard); 🔧 CCC/PPP dup-code human error toast; 📋🔁 "duplicate customer PN made the same number" = expected (dedupe only in `manual` customer-PN mode; internal number always fresh) → re-test with a manual-mode project.
-> - **2I**: ✅ member/manager/admin Team views + admin assign; 🔧 managers now get a self-assign Join/Leave button on Projects (couldn't reach the admin modal). Manager editing others' projects stays 📋 admin-only.
+> - **2I**: ✅ member/manager/admin Team views + admin assign; 🔧 managers now get a self-assign Join/Leave button on Projects (couldn't reach the admin modal); 🗄🔁 manager "can't create a new project" → user chose to allow it, `20260716d` adds the `projects` INSERT policy (button was already shown). Manager editing/archiving *others'* projects stays 📋 admin-only.
 
 ### 2A · Calendar & Timesheet
 - [x] 🔍 Calendar renders current month, public holidays shown (`calendar.js` — holiday fetch errors are silently swallowed though, worth a UX check)
