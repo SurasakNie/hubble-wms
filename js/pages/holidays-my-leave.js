@@ -407,9 +407,14 @@ export function renderBalances(wrap) {
     return;
   }
 
-  // Only real policy entitlements shown as balance cards
+  // Only real policy entitlements shown as balance cards.
+  // Maternity is female-only (matches the request-type dropdown gating).
+  const isFemale = S.myEmployee?.gender === 'female';
   const entitlementCodes = new Set(
-    S.leaveTypes.filter(t => t.code !== 'flex_holiday' && (t.default_days ?? 0) > 0).map(t => t.code)
+    S.leaveTypes
+      .filter(t => t.code !== 'flex_holiday' && (t.default_days ?? 0) > 0)
+      .filter(t => t.code !== 'maternity_leave' || isFemale)
+      .map(t => t.code)
   );
   const myBals = S.balances.filter(b => b.employee_id === S.myEmployee.id && entitlementCodes.has(b.leave_type_code));
 
