@@ -290,7 +290,7 @@ async function _fetchEvents(info, success, failure) {
     const entries = await getEntries({
       dateFrom: info.startStr.slice(0, 10),
       dateTo:   info.endStr.slice(0, 10),
-      userId:   _viewUserId || undefined,   // undefined = RLS scoping (own or all for admin)
+      userId:   _viewUserId || _profile.id,   // default "myself" — unfiltered would mix in all RLS-visible users' entries for admins/managers
       limit:    1000,
     });
 

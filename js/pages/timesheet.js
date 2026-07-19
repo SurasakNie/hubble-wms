@@ -102,7 +102,8 @@ function _wireUserSelect(profile) {
 async function _reload() {
   updateWeekNavLabel('ts', _monday);
   try {
-    const entries = await getWeekEntries(toISODate(_monday), _viewUserId || undefined);
+    // Default "myself" — unfiltered would mix in all RLS-visible users' entries for admins/managers
+    const entries = await getWeekEntries(toISODate(_monday), _viewUserId || _profile.id);
     _buildCells(entries);
   } catch (err) {
     window.showToast?.(err.message, 'error');
